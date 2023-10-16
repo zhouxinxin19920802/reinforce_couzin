@@ -17,7 +17,8 @@ dt = 0.1
 # 最小距离设置 α
 a_minimal_range = 1.8
 
-
+# 吸引距离
+a_attract_range = 5
 
 field_of_view = 3*pi/2
 theta_dot_max = 1
@@ -38,9 +39,9 @@ p = 0.1
 
 class Field:
     def __init__(self):
-        self.width = 500    # x_max[m]
-        self.height = 500   # y_max[m]
-        self.depth = 500    # z_max[m]
+        self.width = 50    # x_max[m]
+        self.height = 50   # y_max[m]
+        self.depth = 50    # z_max[m]
 
 
 def cal_angle_of_vector(v0, v1):
@@ -287,7 +288,7 @@ if __name__ == '__main__':
                     if acos(np.dot(r_normalized, agent_vel_normalized)) < field_of_view / 2:
                         if norm_r < a_minimal_range:
                             dr = dr - r_normalized
-                        else:
+                        elif norm_r < a_attract_range:
                             da = da + r_normalized
                             dv = dv + neighbor.vel/norm(neighbor.vel)
             # print("da:",da)

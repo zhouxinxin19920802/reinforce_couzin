@@ -14,13 +14,14 @@ import numpy as np
 import random
 
 
-
-
 class Field:
     def __init__(self):
-        self.width  = 1000    # x_max[m]
-        self.height = 1000    # y_max[m]
+        self.width = 1000  # x_max[m]
+        self.height = 1000  # y_max[m]
+
+
 field = Field()
+
 
 def cal_angle_of_vector(v0, v1):
     dot_product = np.dot(v0, v1)
@@ -32,35 +33,41 @@ def cal_angle_of_vector(v0, v1):
         raise ZeroDivisionError("{}".format(error))
     return angle_rad
 
+
 # 随机选择领导者
-def get_n_rand(n,p):
+def get_n_rand(n, p):
     leader_list = set()
     while True:
-        leader_list.add(random.randint(0, n-1))
+        leader_list.add(random.randint(0, n - 1))
         if len(leader_list) == n * p:
             break
     return leader_list
 
+
 # 角度旋转
-def rotation_matrix_about(v,angle):
-    x = v[1] * math.sin(angle) + v[0]*math.cos(angle)
-    y = v[1] * math.cos(angle) + v[0]*math.sin(angle)
-
-
+def rotation_matrix_about(v, angle):
+    x = v[1] * math.sin(angle) + v[0] * math.cos(angle)
+    y = v[1] * math.cos(angle) + v[0] * math.sin(angle)
+    return [x, y]
 
 
 # 定义一个智能体的类
-class Agent():
+class Agent:
     def __init__(self, agent_id, speed):
         self.id = agent_id
         self.pos[0] = np.random.uniform(field.width * 1 / 3, field.width * 2 / 3)
         self.pos[1] = np.random.uniform(field.height * 1 / 3, field.height * 2 / 3)
         self.vel = np.random.uniform(-5, 5, 2)
+
+
+
         # 各个方向的速度分量
         self.vel = self.vel / norm(self.vel) * speed
 
+        self.w_p = 0.5
+
         # 目标方向
-        self.g = np.array([-4, 5])/norm(np.array([-4, 5]))
+        self.g = np.array([-4, 5]) / norm(np.array([-4, 5]))
 
         # 是否被选为领导
         self.is_leader = False
@@ -70,7 +77,6 @@ class Agent():
 
 
 class Couzin(gym.Env):
-
     # 初始化
     """
     1. 初始化集群数量
@@ -81,18 +87,19 @@ class Couzin(gym.Env):
     6. 初始化吸引距离
     7. 初始化角速度
     """
-    def _init__(self,N):
+
+    def _init__(self, N):
         # 初始化参数
         # 初始化集群中个体数量
         self.n = N
         # 初始化排斥距离
         self.a_minimal_range = 2
         # 初始化吸引距离
-        self.attract_range = 2
+        self.attract_range = 5
         # 初始化速度
         self.constant_speed = 3.5
         # 初始化角速度
-        self.theta_dot_max  = 1
+        self.theta_dot_max = 1
         # 初始化领导者比例
         self.p = 0.1
         # swarm 生成集群
@@ -104,10 +111,9 @@ class Couzin(gym.Env):
 
         ##################################################
         # field_of_view 可修改
-        self.field_of_view = 3*pi/2
+        self.field_of_view = 3 * pi / 2
 
         # 领导者影响权重比
-
 
         # 生成领导者
         self.leader_list = get_n_rand(self.n, self.p)
@@ -118,12 +124,12 @@ class Couzin(gym.Env):
                 if i == leader_id:
                     self.swarm[i].is_leader = True
 
-
     # 核心函数
     # 奖励函数-运动趋势
     # 分裂-惩罚 平均空间相关度
     # 整体reward 到达目标点大的reward
-    def step(self,action):
+    def step(self, actions):
+        # actions 是一个集合，包含追随者的可视角和领综合
 
         # 遍历集群
         for agent in self.swarm:
@@ -144,51 +150,46 @@ class Couzin(gym.Env):
                     if acos(np.dot(r_normalized, agent_vel_normalized)) < self.field_of_view / 2:
                         if norm_r < self.a_minimal_range:
                             dr = dr - r_normalized
-                        else:
+                        elif norm_r < self.attract_range:
                             da = da + r_normalized
                             dv = dv + neighbor.vel / norm(neighbor.vel)
             if norm(dr) != 0:
                 if agent.is_leader == True:
                     dr = dr / norm(dr)
-                    d = (dr + self.w_p * self.g) / norm(dr + self.w_p * self.g)
+                    d = (dr + Agent.w_p * Agent.g) / norm(dr + Agent.w_p * Agent.g)
                 else:
                     d = dr / norm(dr)
             elif norm(da) != 0:
                 if agent.is_leader == True:
-
                     d_new = (da + dv) / norm(da + dv)
-                    d = (d_new + self.w_p * self.g) / norm(d_new + self.w_p * self.g)
+                    d = (d_new + Agent.w_p * Agent.g) / norm(d_new + Agent.w_p * Agent.g)
                 else:
-
                     d_new = (da + dv) / norm(da + dv)
                     d = d_new
 
             if norm(d) != 0:
-                z = np.cross(d / norm(d), agent.vel / norm(agent.vel))
+
                 angle_between = cal_angle_of_vector(d, agent.vel)
                 if angle_between >= self.theta_dot_max * self.dt:
-                    rot = rotation_matrix_about(z, self.theta_dot_max * self.dt)
-                    vel0 = np.asmatrix(agent.vel) * rot
-                    vel0 = np.asarray(vel0)[0]
+                    rot = rotation_matrix_about(d, self.theta_dot_max * self.dt)
 
-                    rot1 = rotation_matrix_about(z, -self.theta_dot_max * self.dt)
-                    vel1 = np.asmatrix(agent.vel) * rot1
-                    vel1 = np.asarray(vel1)[0]
+                    vel0 = rot
+
+                    rot1 = rotation_matrix_about(d, -self.theta_dot_max * self.dt)
+
+                    vel1 = rot1
 
                     if cal_angle_of_vector(vel0, d) < cal_angle_of_vector(vel1, d):
-                        agent.vel = vel0
+                        agent.vel = vel0 / norm(vel0) * self.constant_speed
                     else:
-                        agent.vel = vel1
+                        agent.vel = vel1 / norm(vel1) * self.constant_speed
                 else:
                     agent.vel = d / norm(d) * self.constant_speed
-                    # print(" agent.vel2:", agent.vel)
-                # print("agent_vel",agent.vel)
-                # print("agent_vel_norm", norm(agent.vel))
+            # 更新各个点的坐标位置
             [agent.update_position(self.dt) for agent in self.swarm]
 
         observation = []
         reward = 5
         done = False
-
 
         return observation, reward, done
