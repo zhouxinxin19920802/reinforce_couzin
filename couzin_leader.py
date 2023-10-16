@@ -27,6 +27,7 @@ break_r = 0
 
 # g 偏好速度方向
 g = np.array([-4, 5, -1])
+g = g/norm(g)
 
 # w 设置影响权重
 w_p = 1.2
@@ -37,9 +38,9 @@ p = 0.1
 
 class Field:
     def __init__(self):
-        self.width = 50    # x_max[m]
-        self.height = 50   # y_max[m]
-        self.depth = 50    # z_max[m]
+        self.width = 500    # x_max[m]
+        self.height = 500   # y_max[m]
+        self.depth = 500    # z_max[m]
 
 
 def cal_angle_of_vector(v0, v1):
@@ -124,7 +125,7 @@ if __name__ == '__main__':
 
     fig = plt.figure()
     if dimension == '3d':
-        ax = fig.gca(projection='3d')
+        ax = fig.add_axes(Axes3D(fig))
     else:
         ax = fig.gca()
     cid = fig.canvas.mpl_connect('close_event', onclick)
@@ -315,7 +316,7 @@ if __name__ == '__main__':
                     vel0 = np.asarray(vel0)[0]
 
                     rot1 = rotation_matrix_about(z, -theta_dot_max * dt)
-                    vel1 = np.asmatrix(agent.vel) * rot
+                    vel1 = np.asmatrix(agent.vel) * rot1
                     vel1 = np.asarray(vel1)[0]
 
                     if cal_angle_of_vector(vel0,d)<cal_angle_of_vector(vel1,d):

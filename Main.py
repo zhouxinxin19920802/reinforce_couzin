@@ -3,6 +3,8 @@
 # @Time    : 2023/10/6 19:35
 # @File    : Main.py.py
 # @annotation    :
+import math
+
 from numpy.linalg import *
 from math import *
 import gym
@@ -30,7 +32,7 @@ def cal_angle_of_vector(v0, v1):
         raise ZeroDivisionError("{}".format(error))
     return angle_rad
 
-#
+# 随机选择领导者
 def get_n_rand(n,p):
     leader_list = set()
     while True:
@@ -38,6 +40,12 @@ def get_n_rand(n,p):
         if len(leader_list) == n * p:
             break
     return leader_list
+
+# 角度旋转
+def rotation_matrix_about(v,angle):
+    x = v[1] * math.sin(angle) + v[0]*math.cos(angle)
+    y = v[1] * math.cos(angle) + v[0]*math.sin(angle)
+
 
 
 
@@ -158,13 +166,13 @@ class Couzin(gym.Env):
             if norm(d) != 0:
                 z = np.cross(d / norm(d), agent.vel / norm(agent.vel))
                 angle_between = cal_angle_of_vector(d, agent.vel)
-                if angle_between >= self.theta_dot_max * dt:
-                    rot = rotation_matrix_about(z, theta_dot_max * dt)
+                if angle_between >= self.theta_dot_max * self.dt:
+                    rot = rotation_matrix_about(z, self.theta_dot_max * self.dt)
                     vel0 = np.asmatrix(agent.vel) * rot
                     vel0 = np.asarray(vel0)[0]
 
-                    rot1 = rotation_matrix_about(z, -theta_dot_max * dt)
-                    vel1 = np.asmatrix(agent.vel) * rot
+                    rot1 = rotation_matrix_about(z, -self.theta_dot_max * self.dt)
+                    vel1 = np.asmatrix(agent.vel) * rot1
                     vel1 = np.asarray(vel1)[0]
 
                     if cal_angle_of_vector(vel0, d) < cal_angle_of_vector(vel1, d):
