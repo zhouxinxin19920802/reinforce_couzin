@@ -4,6 +4,7 @@
 # @File    : Main.py.py
 # @annotation    :
 import math
+from abc import ABC
 
 from numpy.linalg import *
 from math import *
@@ -12,6 +13,14 @@ from gym import spaces
 
 import numpy as np
 import random
+
+
+# 链接Anylogic可视化展示
+# 定义一个函数输出各点位置x,y坐标,
+def position_print(swarm):
+    with open("data_vsiual.txt", "a") as f:
+        for agent in swarm:
+            f.write("{},{},{},{},{}\n".format(agent.id, agent.pos[0], agent.pos[1], agent.vel[0]/3.5, agent.vel[1]/3.5))
 
 
 class Field:
@@ -55,11 +64,10 @@ def rotation_matrix_about(v, angle):
 class Agent:
     def __init__(self, agent_id, speed):
         self.id = agent_id
+        self.pos = np.array([0, 0])
         self.pos[0] = np.random.uniform(field.width * 1 / 3, field.width * 2 / 3)
         self.pos[1] = np.random.uniform(field.height * 1 / 3, field.height * 2 / 3)
         self.vel = np.random.uniform(-5, 5, 2)
-
-
 
         # 各个方向的速度分量
         self.vel = self.vel / norm(self.vel) * speed
@@ -88,7 +96,7 @@ class Couzin(gym.Env):
     7. 初始化角速度
     """
 
-    def _init__(self, N):
+    def __init__(self, N):
         # 初始化参数
         # 初始化集群中个体数量
         self.n = N
@@ -128,7 +136,7 @@ class Couzin(gym.Env):
     # 奖励函数-运动趋势
     # 分裂-惩罚 平均空间相关度
     # 整体reward 到达目标点大的reward
-    def step(self, actions):
+    def step(self):
         # actions 是一个集合，包含追随者的可视角和领综合
 
         # 遍历集群
@@ -154,13 +162,13 @@ class Couzin(gym.Env):
                             da = da + r_normalized
                             dv = dv + neighbor.vel / norm(neighbor.vel)
             if norm(dr) != 0:
-                if agent.is_leader == True:
+                if agent.is_leader:
                     dr = dr / norm(dr)
                     d = (dr + Agent.w_p * Agent.g) / norm(dr + Agent.w_p * Agent.g)
                 else:
                     d = dr / norm(dr)
             elif norm(da) != 0:
-                if agent.is_leader == True:
+                if agent.is_leader:
                     d_new = (da + dv) / norm(da + dv)
                     d = (d_new + Agent.w_p * Agent.g) / norm(d_new + Agent.w_p * Agent.g)
                 else:
@@ -168,7 +176,6 @@ class Couzin(gym.Env):
                     d = d_new
 
             if norm(d) != 0:
-
                 angle_between = cal_angle_of_vector(d, agent.vel)
                 if angle_between >= self.theta_dot_max * self.dt:
                     rot = rotation_matrix_about(d, self.theta_dot_max * self.dt)
@@ -187,9 +194,10 @@ class Couzin(gym.Env):
                     agent.vel = d / norm(d) * self.constant_speed
             # 更新各个点的坐标位置
             [agent.update_position(self.dt) for agent in self.swarm]
+            # 输出各个智能体的编号，坐标，速度方向
 
-        observation = []
-        reward = 5
-        done = False
+            position_print(self.swarm)
 
-        return observation, reward, done
+
+couzin = Couzin(10)
+couzin.step()
