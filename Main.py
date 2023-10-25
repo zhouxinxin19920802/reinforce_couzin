@@ -78,6 +78,11 @@ def rotation_matrix_about(v, angle):
     y = v[1] * math.cos(angle) + v[0] * math.sin(angle)
     return [x, y]
 
+# 定义工具函数，计算两个智能体之间的距离
+def cal_distance(agent_a, agent_b):
+    distance_vector = agent_a.pos - agent_b.pos
+    return norm(distance_vector)
+
 
 # 定义一个智能体的类
 class Agent:
@@ -114,6 +119,8 @@ class Agent:
             self.pos[1] = self.pos[1] + field.height
 
 
+
+
 class Couzin(gym.Env):
     # 初始化
     """
@@ -129,6 +136,7 @@ class Couzin(gym.Env):
     def __init__(self, N):
         # 初始化参数
         # 初始化集群中个体数量
+
         self.n = N
         # 初始化排斥距离
         self.a_minimal_range = 2
@@ -137,7 +145,7 @@ class Couzin(gym.Env):
         # 初始化速度
         self.constant_speed = 3
         # 初始化角速度
-        self.theta_dot_max = 1
+        self.theta_dot_max = 0.5
         # 初始化领导者比例
         self.p = 0.3
         # swarm 生成集群
@@ -167,6 +175,12 @@ class Couzin(gym.Env):
         self.fig = plt.figure()
         self.ax = self.fig.gca()
 
+        #  定义目标点位置
+        self.target_x = 450
+        self.target_y = 450
+        self.target_radius = 10
+
+
     # 核心函数
     # 奖励函数-运动趋势
     # 分裂-惩罚 平均空间相关度
@@ -185,67 +199,82 @@ class Couzin(gym.Env):
             # 当前个体的速度
             dv = agent.vel
 
-            for neighbor in self.swarm:
-                if agent.id != neighbor.id:
-                    # 位置向量，单位位置向量，距离
-                    r = neighbor.pos - agent.pos
-                    # logging.info("r:{}".format(r))
-                    if norm(r) == 0:
-                        r_normalized = r
+            if agent.is_leader:
+                agent.g = np.array([self.target_x,self.target_y]) - agent.pos
+                agent.g = agent.g / norm(agent.g)
+
+            # 这边要做个判断，如果已经到达目标范围内，则直接更新速度方向
+            if math.sqrt(pow(agent.pos[0] - self.target_x,2) + pow(agent.pos[1] - self.target_y,2)) < self.target_radius:
+                agent.vel = np.array([self.target_x - agent.pos[0],self.target_y - agent.pos[1]])
+                agent.vel = agent.vel / norm(agent.vel)
+                logging.info("agent.vel:{}".format(agent.vel))
+            else:
+                for neighbor in self.swarm:
+                    if agent.id != neighbor.id and cal_distance(agent, neighbor) < self.attract_range:
+                        # 位置向量，单位位置向量，距离
+                        r = neighbor.pos - agent.pos
+                        # logging.info("r:{}".format(r))
+                        if norm(r) == 0:
+                            r_normalized = r
+                        else:
+                            r_normalized = r / norm(r)
+                        # 位置向量标准化
+                        norm_r = norm(r)
+                        # 速度向量
+                        agent_vel_normalized = agent.vel / norm(agent.vel)
+                        if cal_angle_of_vector(r_normalized, agent_vel_normalized) < self.field_of_view / 2:
+                            if norm_r < self.a_minimal_range:
+                                # 排斥区域，位置累计
+                                dr = dr - r_normalized
+                            elif norm_r < self.attract_range:
+                                # 吸引区域位置向量累计
+                                da = da + r_normalized
+                                # 吸引区速度向量累计
+                                dv = dv + neighbor.vel / norm(neighbor.vel)
+                if norm(dr) != 0:
+                    # 排斥区域
+                    if agent.is_leader:
+                        dr = dr / norm(dr)
+                        d = (dr + agent.w_p * agent.g) / norm(dr + agent.w_p * agent.g)
                     else:
-                        r_normalized = r / norm(r)
-                    # 位置向量标准化
-                    norm_r = norm(r)
-                    # 速度向量
-                    agent_vel_normalized = agent.vel / norm(agent.vel)
-                    if cal_angle_of_vector(r_normalized, agent_vel_normalized) < self.field_of_view / 2:
-                        if norm_r < self.a_minimal_range:
-                            # 排斥区域，位置累计
-                            dr = dr - r_normalized
-                        elif norm_r < self.attract_range:
-                            # 吸引区域位置向量累计
-                            da = da + r_normalized
-                            # 吸引区速度向量累计
-                            dv = dv + neighbor.vel / norm(neighbor.vel)
-            if norm(dr) != 0:
-                # 排斥区域
-                if agent.is_leader:
-                    dr = dr / norm(dr)
-                    d = (dr + agent.w_p * agent.g) / norm(dr + agent.w_p * agent.g)
-                else:
-                    d = dr / norm(dr)
-            elif norm(da) != 0:
-                # 吸引区域
-                if agent.is_leader:
-                    d_new = (da + dv) / norm(da + dv)
-                    d = (d_new + agent.w_p * agent.g) / norm(d_new + agent.w_p * agent.g)
-                else:
-                    d_new = (da + dv) / norm(da + dv)
-                    d = d_new
-
-            if norm(d) != 0:
-                angle_between = cal_angle_of_vector(d, agent.vel)
-                if angle_between >= self.theta_dot_max * self.dt:
-                    rot = rotation_matrix_about(d, self.theta_dot_max * self.dt)
-
-                    vel0 = rot
-
-                    rot1 = rotation_matrix_about(d, -self.theta_dot_max * self.dt)
-
-                    vel1 = rot1
-
-                    if cal_angle_of_vector(vel0, d) < cal_angle_of_vector(vel1, d):
-                        agent.vel = vel0 / norm(vel0) * self.constant_speed
+                        d = dr / norm(dr)
+                elif norm(da) != 0:
+                    # 吸引区域
+                    if agent.is_leader:
+                        d_new = (da + dv) / norm(da + dv)
+                        d = (d_new + agent.w_p * agent.g) / norm(d_new + agent.w_p * agent.g)
                     else:
-                        agent.vel = vel1 / norm(vel1) * self.constant_speed
-                else:
-                    agent.vel = d / norm(d) * self.constant_speed
+                        d_new = (da + dv) / norm(da + dv)
+                        d = d_new
+
+
+
+                if norm(d) != 0:
+                    angle_between = cal_angle_of_vector(d, agent.vel)
+                    if angle_between >= self.theta_dot_max * self.dt:
+                        rot = rotation_matrix_about(d, self.theta_dot_max * self.dt)
+
+                        vel0 = rot
+
+                        rot1 = rotation_matrix_about(d, -self.theta_dot_max * self.dt)
+
+                        vel1 = rot1
+
+                        if cal_angle_of_vector(vel0, d) < cal_angle_of_vector(vel1, d):
+                            agent.vel = vel0 / norm(vel0) * self.constant_speed
+                        else:
+                            agent.vel = vel1 / norm(vel1) * self.constant_speed
+                    else:
+                        agent.vel = d / norm(d) * self.constant_speed
+                if agent.is_leader:
+                    logging.info("id,vel:{},{}".format(agent.id,agent.vel))
+
         # 更新各个点的坐标位置
         [agent.update_position(self.dt) for agent in self.swarm]
         # 输出各个智能体的编号，坐标，速度方向,是否是领导者
-        logging.info("#########################")
-        for i in range(len(self.swarm)):
-            logging.info("swarm:{},{},{}".format(self.swarm[i].id, self.swarm[i].pos, self.swarm[i].vel))
+        # logging.info("#########################")
+        # for i in range(len(self.swarm)):
+        #     logging.info("swarm:{},{},{}".format(self.swarm[i].id, self.swarm[i].pos, self.swarm[i].vel))
         self.steps = self.steps + 1
         if self.steps > 1000:
             done = True
@@ -264,15 +293,17 @@ class Couzin(gym.Env):
         y_dot = np.array([])
 
         for agent in self.swarm:
+            # 存储所有横纵坐标位置
             # x，y分别存储x,y
             x = np.append(x, agent.pos[0])
             y = np.append(y, agent.pos[1])
 
+            # 存储所有横纵速度方向
             # x_dot，y_dot 分别存储x,y
             x_dot = np.append(x_dot, agent.vel[0])
             y_dot = np.append(y_dot, agent.vel[1])
 
-
+        # 清除展示区
         self.ax.clear()
 
 
@@ -294,16 +325,16 @@ class Couzin(gym.Env):
                 y_temp = np.append(y_temp, self.swarm[i].pos[1])
 
                 # x_dot，y_dot 分别存储x,y方向上的范数
-                x_temp_dot = np.append(x_temp_dot, self.swarm[i].vel[0])
-                y_temp_dot = np.append(y_temp_dot, self.swarm[i].vel[1])
+                x_temp_dot = np.append(x_temp_dot, self.swarm[i].vel[0] * 0.1)
+                y_temp_dot = np.append(y_temp_dot, self.swarm[i].vel[1] * 0.1)
 
-        self.ax.quiver(x_temp, x_temp, x_temp_dot, y_temp_dot, width=0.02,
-                  scale=10,units="inches", color='#EC3684')
+        self.ax.quiver(x_temp, y_temp, x_temp_dot, y_temp_dot, width=0.01,
+                  scale=5, units="inches", color='#EC3684',angles='xy')
 
         for leader_id in list(self.leader_list):
-            self.ax.quiver(x[leader_id], y[leader_id], self.swarm[leader_id].vel[0],
-                      self.swarm[leader_id].vel[1],
-                      width=0.02, scale=10, units="inches", color='#006400')
+            self.ax.quiver(x[leader_id], y[leader_id], self.swarm[leader_id].vel[0] * 0.1,
+                      self.swarm[leader_id].vel[1] * 0.1,
+                      width=0.01, scale=5, units="inches", color='#006400',angles='xy')
 
         self.ax.set_aspect('auto', 'box')
         self.ax.set_xlim(0, field.width)
@@ -311,6 +342,8 @@ class Couzin(gym.Env):
 
         self.ax.tick_params(axis='x', colors='red')
         self.ax.tick_params(axis='y', colors='blue')
+        circle = plt.Circle((self.target_x, self.target_y), self.target_radius, color='r', fill=False)
+        plt.gcf().gca().add_artist(circle)
         plt.pause(0.01)
 
 
