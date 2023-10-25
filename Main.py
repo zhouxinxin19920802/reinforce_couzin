@@ -16,14 +16,15 @@ import random
 
 # 日志模块
 import logging
-logging.basicConfig(level=logging.DEBUG,#控制台打印的日志级别
-                    filename='test_log.txt',
-                    filemode='w',##模式，有w和a，w就是写模式，每次都会重新写日志，覆盖之前的日志
-                    #a是追加模式，默认如果不写的话，就是追加模式
-                    format=
-                    '%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s'
-                    #日志格式
-                    )
+
+logging.basicConfig(
+    level=logging.DEBUG,  # 控制台打印的日志级别
+    filename="test_log.txt",
+    filemode="w",  ##模式，有w和a，w就是写模式，每次都会重新写日志，覆盖之前的日志
+    # a是追加模式，默认如果不写的话，就是追加模式
+    format="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s"
+    # 日志格式
+)
 
 
 # 链接Anylogic可视化展示
@@ -31,8 +32,11 @@ logging.basicConfig(level=logging.DEBUG,#控制台打印的日志级别
 def position_print(swarm):
     with open("data_vsiual.txt", "w") as f:
         for agent in swarm:
-            f.write("{},{},{},{},{},{}\n".format(agent.id, agent.pos[0], agent.pos[1], agent.vel[0]/3.5,
-                                                 agent.vel[1]/3.5, agent.is_leader))
+            f.write(
+                "{},{},{},{},{},{}\n".format(
+                    agent.id, agent.pos[0], agent.pos[1], agent.vel[0] / 3.5, agent.vel[1] / 3.5, agent.is_leader
+                )
+            )
 
 
 class Field:
@@ -44,32 +48,19 @@ class Field:
 field = Field()
 
 
-# def cal_angle_of_vector(v0, v1):
-#     # print("{},{}".format(v0,v1))
-#     v0 = v0/norm(v0)
-#     v1 = v1/norm(v1)
-#     dot_product = np.dot(v0, v1)
-#     v0_len = np.linalg.norm(v0)
-#     v1_len = np.linalg.norm(v1)
-#     try:
-#         angle_rad = np.arccos(dot_product / (v0_len * v1_len))
-#     except ZeroDivisionError as error:
-#         raise ZeroDivisionError("{}".format(error))
-#     return angle_rad
-
 # 计算两个方向的夹角
 def cal_angle_of_vector(v1, v2):
     # print(v1,v2)
     dot_product = v1[0] * v2[0] + v1[1] * v2[1]
-    v1_norm = math.sqrt(v1[0] * v1[0] + v1[1] * v1[1])
-    v2_norm = math.sqrt(v2[0] * v2[0] + v2[1] * v2[1])
-    cons = dot_product / (v1_norm * v2_norm)
-    if cons<-1:
+    # logging.info("v1_norm_v2_norm:{},{},{}".format(v1,v2,norm(v1) * norm(v2) ))
+    cons = dot_product / (norm(v1) * norm(v2))
+    if cons < -1:
         cons = -1
     if cons > 1:
         cons = 1
     angle_rad = math.acos(cons)
     return angle_rad
+
 
 # 随机选择领导者
 def get_n_rand(n, p):
@@ -115,12 +106,13 @@ class Agent:
         self.pos = self.pos + self.vel * delta_t
         if self.pos[0] < 0:
             self.pos[0] = self.pos[0] + field.width
-        if self.pos[0] > self.width:
+        if self.pos[0] > field.width:
             self.pos[0] = self.pos[0] - field.width
         if self.pos[1] > field.height:
             self.pos[1] = self.pos[1] - field.height
-        if self.pos[1] < field.height:
+        if self.pos[1] < 0:
             self.pos[1] = self.pos[1] + field.height
+
 
 class Couzin(gym.Env):
     # 初始化
@@ -143,7 +135,7 @@ class Couzin(gym.Env):
         # 初始化吸引距离
         self.attract_range = 5
         # 初始化速度
-        self.constant_speed = 1
+        self.constant_speed = 3
         # 初始化角速度
         self.theta_dot_max = 1
         # 初始化领导者比例
@@ -157,15 +149,6 @@ class Couzin(gym.Env):
         self.reward = 0
         self.steps = 0
 
-        # for i in range(self.n - 1):
-        #
-        #     xi = (2 * random.random() - 1) * self.attract_range + item.p_x
-        #     yi = (2 * random.random() - 1) * self.attract_range + item.p_y
-        #     ri1 = math.sqrt(xi - )
-
-
-
-
         # 设置时间步长
         self.dt = 0.1
 
@@ -173,16 +156,14 @@ class Couzin(gym.Env):
         # field_of_view 可修改
         self.field_of_view = 3 * pi / 2
 
-
-
         # 生成领导者
         self.leader_list = get_n_rand(self.n, self.p)
 
         # 更新领导者标志
-        for i in range(len(self.swarm)):
+        for j in range(len(self.swarm)):
             for leader_id in self.leader_list:
-                if i == leader_id:
-                    self.swarm[i].is_leader = True
+                if j == leader_id:
+                    self.swarm[j].is_leader = True
         self.fig = plt.figure()
         self.ax = self.fig.gca()
 
@@ -197,32 +178,44 @@ class Couzin(gym.Env):
         for agent in self.swarm:
             # 2005 couzin领导模型
             d = 0
+            # 排斥域
             dr = 0
+            # 吸引域
             da = 0
+            # 当前个体的速度
             dv = agent.vel
 
             for neighbor in self.swarm:
                 if agent.id != neighbor.id:
                     # 位置向量，单位位置向量，距离
                     r = neighbor.pos - agent.pos
-                    print( norm(r))
-                    r_normalized = r / norm(r)
+                    # logging.info("r:{}".format(r))
+                    if norm(r) == 0:
+                        r_normalized = r
+                    else:
+                        r_normalized = r / norm(r)
+                    # 位置向量标准化
                     norm_r = norm(r)
                     # 速度向量
                     agent_vel_normalized = agent.vel / norm(agent.vel)
                     if cal_angle_of_vector(r_normalized, agent_vel_normalized) < self.field_of_view / 2:
                         if norm_r < self.a_minimal_range:
+                            # 排斥区域，位置累计
                             dr = dr - r_normalized
                         elif norm_r < self.attract_range:
+                            # 吸引区域位置向量累计
                             da = da + r_normalized
+                            # 吸引区速度向量累计
                             dv = dv + neighbor.vel / norm(neighbor.vel)
             if norm(dr) != 0:
+                # 排斥区域
                 if agent.is_leader:
                     dr = dr / norm(dr)
                     d = (dr + agent.w_p * agent.g) / norm(dr + agent.w_p * agent.g)
                 else:
                     d = dr / norm(dr)
             elif norm(da) != 0:
+                # 吸引区域
                 if agent.is_leader:
                     d_new = (da + dv) / norm(da + dv)
                     d = (d_new + agent.w_p * agent.g) / norm(d_new + agent.w_p * agent.g)
@@ -247,79 +240,80 @@ class Couzin(gym.Env):
                         agent.vel = vel1 / norm(vel1) * self.constant_speed
                 else:
                     agent.vel = d / norm(d) * self.constant_speed
-            # 更新各个点的坐标位置
-            [agent.update_position(self.dt) for agent in self.swarm]
-            # 输出各个智能体的编号，坐标，速度方向,是否是领导者
-            position_print(self.swarm)
-            self.steps = self.steps = 0 + 1
-            if self.steps > 1000:
-                done = True
+        # 更新各个点的坐标位置
+        [agent.update_position(self.dt) for agent in self.swarm]
+        # 输出各个智能体的编号，坐标，速度方向,是否是领导者
+        logging.info("#########################")
+        for i in range(len(self.swarm)):
+            logging.info("swarm:{},{},{}".format(self.swarm[i].id, self.swarm[i].pos, self.swarm[i].vel))
+        self.steps = self.steps + 1
+        if self.steps > 1000:
+            done = True
 
-            observation = 0
-            reward = 0
+        observation = 0
+        reward = 0
 
-            return observation, reward,done
+        # return observation, reward,done
 
-            # # 可视化展示
-            #
-            # x = np.array([])
-            # y = np.array([])
-            # z = np.array([])
-            # x_dot = np.array([])
-            # y_dot = np.array([])
-            # z_dot = np.array([])
-            # for agent in self.swarm:
-            #     # x，y,z 分别存储x,y
-            #     x = np.append(x, agent.pos[0])
-            #     y = np.append(y, agent.pos[1])
-            #
-            #     # x_dot，y_dot 分别存储x,y
-            #     x_dot = np.append(x_dot, agent.vel[0])
-            #     y_dot = np.append(y_dot, agent.vel[1])
-            #
-            #
-            # self.ax.clear()
-            #
-            #
-            # # 设置箭头的形状和大小
-            # x_temp = np.array([])
-            # y_temp = np.array([])
-            #
-            #
-            # x_temp_dot = np.array([])
-            # y_temp_dot = np.array([])
-            #
-            #
-            # for i in range(len(self.swarm)):
-            #     for leader_id in list(self.leader_list):
-            #         if self.swarm[i].id == leader_id:
-            #             continue
-            #         # x，y分别存储x,y方向上的位置
-            #         x_temp = np.append(x_temp, self.swarm[i].pos[0])
-            #         y_temp = np.append(y_temp, self.swarm[i].pos[1])
-            #
-            #         # x_dot，y_dot 分别存储x,y方向上的范数
-            #         x_temp_dot = np.append(x_temp_dot, self.swarm[i].vel[0])
-            #         y_temp_dot = np.append(y_temp_dot, self.swarm[i].vel[1])
-            #
-            # self.ax.quiver(x_temp, x_temp, x_temp_dot, y_temp_dot, width=0.02,
-            #           scale=10,units="inches", color='#EC3684')
-            #
-            # for leader_id in list(self.leader_list):
-            #     self.ax.quiver(x[leader_id], y[leader_id], self.swarm[leader_id].vel[0],
-            #               self.swarm[leader_id].vel[1],
-            #               width=0.02, scale=10, units="inches", color='#006400')
-            #
-            # self.ax.set_aspect('auto', 'box')
-            # self.ax.set_xlim(0, field.width)
-            # self.ax.set_ylim(0, field.height)
-            #
-            # self.ax.tick_params(axis='x', colors='red')
-            # self.ax.tick_params(axis='y', colors='blue')
+        # 可视化展示
+
+        x = np.array([])
+        y = np.array([])
+
+        x_dot = np.array([])
+        y_dot = np.array([])
+
+        for agent in self.swarm:
+            # x，y分别存储x,y
+            x = np.append(x, agent.pos[0])
+            y = np.append(y, agent.pos[1])
+
+            # x_dot，y_dot 分别存储x,y
+            x_dot = np.append(x_dot, agent.vel[0])
+            y_dot = np.append(y_dot, agent.vel[1])
 
 
+        self.ax.clear()
 
 
-couzin = Couzin(50)
-for i in range(100):
+        # 设置箭头的形状和大小
+        x_temp = np.array([])
+        y_temp = np.array([])
+
+
+        x_temp_dot = np.array([])
+        y_temp_dot = np.array([])
+
+
+        for i in range(len(self.swarm)):
+            for leader_id in list(self.leader_list):
+                if self.swarm[i].id == leader_id:
+                    continue
+                # x，y分别存储x,y方向上的位置
+                x_temp = np.append(x_temp, self.swarm[i].pos[0])
+                y_temp = np.append(y_temp, self.swarm[i].pos[1])
+
+                # x_dot，y_dot 分别存储x,y方向上的范数
+                x_temp_dot = np.append(x_temp_dot, self.swarm[i].vel[0])
+                y_temp_dot = np.append(y_temp_dot, self.swarm[i].vel[1])
+
+        self.ax.quiver(x_temp, x_temp, x_temp_dot, y_temp_dot, width=0.02,
+                  scale=10,units="inches", color='#EC3684')
+
+        for leader_id in list(self.leader_list):
+            self.ax.quiver(x[leader_id], y[leader_id], self.swarm[leader_id].vel[0],
+                      self.swarm[leader_id].vel[1],
+                      width=0.02, scale=10, units="inches", color='#006400')
+
+        self.ax.set_aspect('auto', 'box')
+        self.ax.set_xlim(0, field.width)
+        self.ax.set_ylim(0, field.height)
+
+        self.ax.tick_params(axis='x', colors='red')
+        self.ax.tick_params(axis='y', colors='blue')
+        plt.pause(0.01)
+
+
+couzin = Couzin(20)
+for i in range(1000):
     couzin.step()
