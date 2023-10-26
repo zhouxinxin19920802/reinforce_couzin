@@ -161,7 +161,6 @@ class Couzin(gym.Env):
         # 生成第一个个体的坐标
         self.observation = []
         self.reward = 0
-        self.steps = 0
 
         # 设置时间步长
         self.dt = 0.2
@@ -185,10 +184,16 @@ class Couzin(gym.Env):
         #  定义目标点位置
         self.target_x = 450
         self.target_y = 450
-        self.target_radius = 10
+        self.target_radius = 50
 
         # 可视化展示功能开关
         self.is_visual = True
+
+        # 已经运行的steps数量
+        self.total_steps = 0
+
+        #  奖励是总的奖励，而观察室暂态的
+        self.reward = 0
 
     # 核心函数
     # 奖励函数-运动趋势
@@ -299,14 +304,6 @@ class Couzin(gym.Env):
         # logging.info("#########################")
         # for i in range(len(self.swarm)):
         #     logging.info("swarm:{},{},{}".format(self.swarm[i].id, self.swarm[i].pos, self.swarm[i].vel))
-        self.steps = self.steps + 1
-        if self.steps > 1000:
-            done = True
-
-        observation = 0
-        reward = 0
-
-        # return observation, reward,done
 
         if self.is_visual:
             # 可视化展示
@@ -416,7 +413,30 @@ class Couzin(gym.Env):
             self.swarm[n].neibour_set_repulse = []
 
         connect_value = self.connectivity_cal()
-        print("connect_value:{}".format(connect_value))
+
+        self.total_steps = self.total_steps + 1
+        if self.total_steps > 1500:
+            done = True
+
+
+
+        observation = 0
+
+
+
+
+        # 奖励函数设计, observation的设计
+        # 连通度设计奖励，到达奖励的设计
+        # 连通度奖励就以连通度为奖励
+        # 到达终点时的奖励设计
+        """
+           在某个时刻到达终点的个数越多奖励越大 
+        """
+        arrival_rate = self.arrival_proportion_cal()
+        self.reward = self.reward + connect_value + arrival_rate * 50
+
+        #
+
 
     def connectivity_cal(self):
         connectivity = 0
@@ -532,10 +552,18 @@ class Couzin(gym.Env):
 
         for flock_contains_leadr in sub_swarm_set:
             subswarm_length = len(flock_contains_leadr)
-            if subswarm_length!=0:
+            if subswarm_length != 0:
                 connectivity = connectivity + subswarm_length * (subswarm_length - 1)
-        connectivity = connectivity / (len(self.swarm)*(len(self.swarm)-1))
+        connectivity = connectivity / (len(self.swarm) * (len(self.swarm) - 1))
         return connectivity
+
+    def arrival_proportion_cal(self):
+        arrival_num = 0
+        for point in self.swarm:
+            if math.sqrt(
+                    (point.pos[0] - self.target_x) ** 2 + (point.pos[1] - self.target_y) ** 2) < self.attract_range:
+                arrival_num = arrival_num + 1
+        return arrival_num / len(self.swarm)
 
 
 couzin = Couzin()
