@@ -466,7 +466,7 @@ class Couzin(gym.Env):
             return adjacent_nodes
 
         def is_connected(a1, a2):
-            if math.sqrt((a1.p_x - a2.p_x) ** 2 + (a1.p_y - a2.p_y) ** 2) <= 20:
+            if math.sqrt((a1.p_x - a2.p_x) ** 2 + (a1.p_y - a2.p_y) ** 2) <= self.attract_range:
                 return True
             return False
 
