@@ -101,7 +101,7 @@ class Agent:
         self.vel = self.vel / norm(self.vel) * speed
 
         # 目标影响权重
-        self.w_p = 0.5
+        self.w_p = 0.3
 
         # 目标方向
         self.g = np.array([1, 1]) / norm(np.array([1, 1]))
@@ -109,8 +109,11 @@ class Agent:
         # 是否被选为领导
         self.is_leader = False
 
-        # 每个点的邻域集合
-        self.neibour_set = []
+        # 每个点的吸引邻域集合
+        self.neibour_set_attract = []
+
+        # 每个点的排斥邻域集合
+        self.neibour_set_repulse = []
 
     def update_position(self, delta_t):
         self.pos = self.pos + self.vel * delta_t
@@ -148,7 +151,7 @@ class Couzin(gym.Env):
         # 初始化速度
         self.constant_speed = 7
         # 初始化角速度
-        self.theta_dot_max = 1
+        self.theta_dot_max = 2
         # 初始化领导者比例
         self.p = 0.3
         # swarm 生成集群
@@ -183,6 +186,9 @@ class Couzin(gym.Env):
         self.target_x = 450
         self.target_y = 450
         self.target_radius = 10
+
+        # 可视化展示功能开关
+        self.is_visual = True
 
     # 核心函数
     # 奖励函数-运动趋势
@@ -219,7 +225,7 @@ class Couzin(gym.Env):
                     if agent.id != neighbor.id and cal_distance(agent,
                                                                 neighbor) < self.attract_range and cal_angle_of_vector(
                         visual_vector, agent.vel) < self.field_of_view / 2:
-                        agent.neibour_set.append(neighbor)
+
                         neighbor_count = neighbor_count + 1
                         # 位置向量，单位位置向量，距离
                         r = neighbor.pos - agent.pos
@@ -234,9 +240,13 @@ class Couzin(gym.Env):
                         agent_vel_normalized = agent.vel / norm(agent.vel)
                         if cal_angle_of_vector(r_normalized, agent_vel_normalized) < self.field_of_view / 2:
                             if norm_r < self.a_minimal_range:
+                                # 添加排斥区域
+                                agent.neibour_set_repulse.append(neighbor)
                                 # 排斥区域，位置累计
                                 dr = dr - r_normalized
                             elif norm_r < self.attract_range:
+                                # 添加吸引区域邻域集合
+                                agent.neibour_set_attract.append(neighbor)
                                 # 吸引区域位置向量累计
                                 da = da + r_normalized
                                 # 吸引区速度向量累计
@@ -260,6 +270,8 @@ class Couzin(gym.Env):
                 else:
                     if agent.is_leader:
                         d = agent.g
+                    else:
+                        d = agent.vel / norm(agent.vel)
 
                 if norm(d) != 0:
                     angle_between = cal_angle_of_vector(d, agent.vel)
@@ -296,99 +308,234 @@ class Couzin(gym.Env):
 
         # return observation, reward,done
 
-        # 可视化展示
+        if self.is_visual:
+            # 可视化展示
 
-        x = np.array([])
-        y = np.array([])
+            x = np.array([])
+            y = np.array([])
 
-        x_dot = np.array([])
-        y_dot = np.array([])
+            x_dot = np.array([])
+            y_dot = np.array([])
 
-        for agent in self.swarm:
-            # 存储所有横纵坐标位置
-            # x，y分别存储x,y
-            x = np.append(x, agent.pos[0])
-            y = np.append(y, agent.pos[1])
+            for agent in self.swarm:
+                # 存储所有横纵坐标位置
+                # x，y分别存储x,y
+                x = np.append(x, agent.pos[0])
+                y = np.append(y, agent.pos[1])
 
-            # 存储所有横纵速度方向
-            # x_dot，y_dot 分别存储x,y
-            x_dot = np.append(x_dot, agent.vel[0])
-            y_dot = np.append(y_dot, agent.vel[1])
+                # 存储所有横纵速度方向
+                # x_dot，y_dot 分别存储x,y
+                x_dot = np.append(x_dot, agent.vel[0])
+                y_dot = np.append(y_dot, agent.vel[1])
 
-        # 清除展示区
-        self.ax.clear()
-        # logging.info("x:{}".format(x))
-        # logging.info("y:{}".format(y))
-        # logging.info("x_dot:{}".format(x_dot))
-        # logging.info("y_dot:{}".format(y_dot))
-        # 设置箭头的形状和大小
-        # 追随者
-        x_temp = np.array([])
-        y_temp = np.array([])
-        x_temp_dot = np.array([])
-        y_temp_dot = np.array([])
+            # 清除展示区
+            self.ax.clear()
+            # logging.info("x:{}".format(x))
+            # logging.info("y:{}".format(y))
+            # logging.info("x_dot:{}".format(x_dot))
+            # logging.info("y_dot:{}".format(y_dot))
+            # 设置箭头的形状和大小
+            # 追随者
+            x_temp = np.array([])
+            y_temp = np.array([])
+            x_temp_dot = np.array([])
+            y_temp_dot = np.array([])
 
-        # 领导者
-        x_temp_f = np.array([])
-        y_temp_f = np.array([])
-        x_temp_dot_f = np.array([])
-        y_temp_dot_f = np.array([])
+            # 领导者
+            x_temp_f = np.array([])
+            y_temp_f = np.array([])
+            x_temp_dot_f = np.array([])
+            y_temp_dot_f = np.array([])
 
-        # logging.info("self.leader_list:{}".format(self.leader_list))
-        for i in range(len(self.swarm)):
-            if i not in list(self.leader_list):
+            # logging.info("self.leader_list:{}".format(self.leader_list))
+            for i in range(len(self.swarm)):
+                if i not in list(self.leader_list):
+                    # x，y分别存储x,y方向上的位置
+                    x_temp = np.append(x_temp, self.swarm[i].pos[0])
+                    y_temp = np.append(y_temp, self.swarm[i].pos[1])
+
+                    # x_dot，y_dot 分别存储x,y方向上的范数
+                    x_temp_dot = np.append(x_temp_dot, self.swarm[i].vel[0] / norm(self.swarm[i].vel) * 0.4)
+                    y_temp_dot = np.append(y_temp_dot, self.swarm[i].vel[1] / norm(self.swarm[i].vel) * 0.4)
+
+            self.ax.quiver(x_temp, y_temp, x_temp_dot, y_temp_dot, width=0.01,
+                           scale=5, units="inches", color='#EC3684', angles='xy')
+
+            for item in self.leader_list:
                 # x，y分别存储x,y方向上的位置
-                x_temp = np.append(x_temp, self.swarm[i].pos[0])
-                y_temp = np.append(y_temp, self.swarm[i].pos[1])
+
+                x_temp_f = np.append(x_temp_f, self.swarm[item].pos[0])
+                # logging.info("x_temp_f:{}".format(x_temp_f))
+                y_temp_f = np.append(y_temp_f, self.swarm[item].pos[1])
 
                 # x_dot，y_dot 分别存储x,y方向上的范数
-                x_temp_dot = np.append(x_temp_dot, self.swarm[i].vel[0] / norm(self.swarm[i].vel) * 0.4)
-                y_temp_dot = np.append(y_temp_dot, self.swarm[i].vel[1] / norm(self.swarm[i].vel) * 0.4)
-
-        self.ax.quiver(x_temp, y_temp, x_temp_dot, y_temp_dot, width=0.01,
-                       scale=5, units="inches", color='#EC3684', angles='xy')
-
-        for item in self.leader_list:
-            # x，y分别存储x,y方向上的位置
-
-            x_temp_f = np.append(x_temp_f, self.swarm[item].pos[0])
+                x_temp_dot_f = np.append(x_temp_dot_f, self.swarm[item].vel[0] / norm(self.swarm[item].vel) * 0.4)
+                y_temp_dot_f = np.append(y_temp_dot_f, self.swarm[item].vel[1] / norm(self.swarm[item].vel) * 0.4)
             # logging.info("x_temp_f:{}".format(x_temp_f))
-            y_temp_f = np.append(y_temp_f, self.swarm[item].pos[1])
 
-            # x_dot，y_dot 分别存储x,y方向上的范数
-            x_temp_dot_f = np.append(x_temp_dot_f, self.swarm[item].vel[0] / norm(self.swarm[item].vel) * 0.4)
-            y_temp_dot_f = np.append(y_temp_dot_f, self.swarm[item].vel[1] / norm(self.swarm[item].vel) * 0.4)
-        # logging.info("x_temp_f:{}".format(x_temp_f))
+            self.ax.quiver(x_temp_f, y_temp_f, x_temp_dot_f,
+                           y_temp_dot_f,
+                           width=0.01, scale=5, units="inches", color='#006400', angles='xy')
 
-        self.ax.quiver(x_temp_f, y_temp_f, x_temp_dot_f,
-                       y_temp_dot_f,
-                       width=0.01, scale=5, units="inches", color='#006400', angles='xy')
+            # 添加画线, 画出排斥和吸引，判断是否正常运行
+            for k in range(len(self.swarm)):
+                # 画self.swarm[k] 与其邻居的线
+                # 创建邻居集合
+                neibors_attrack = []
+                for m in range(len(self.swarm[k].neibour_set_attract)):
+                    neibors_attrack.append(
+                        [self.swarm[k].neibour_set_attract[m].pos[0], self.swarm[k].neibour_set_attract[m].pos[1]])
+                if len(neibors_attrack) != 0:
+                    x_points, y_points = zip(*neibors_attrack)
+                    # 绘制连线
+                    for x, y in neibors_attrack:
+                        plt.plot([self.swarm[k].pos[0], x], [self.swarm[k].pos[1], y], 'g--', linewidth=0.1, zorder=1)
+                # 排斥区域邻居集合
+                neibors_repluse = []
+                for m in range(len(self.swarm[k].neibour_set_repulse)):
+                    neibors_repluse.append(
+                        [self.swarm[k].neibour_set_repulse[m].pos[0], self.swarm[k].neibour_set_repulse[m].pos[1]])
+                if len(neibors_repluse) != 0:
+                    x_points, y_points = zip(*neibors_repluse)
+                    # 绘制连线
+                    for x, y in neibors_repluse:
+                        plt.plot([self.swarm[k].pos[0], x], [self.swarm[k].pos[1], y], 'r--', linewidth=0.1, zorder=1)
 
-        # 添加画线, 画出排斥和吸引，判断是否正常运行
-        for k in range(len(self.swarm)):
-            # 画self.swarm[k] 与其邻居的线
-            # 创建邻居集合
-            neibors = []
-            for m in range(len(self.swarm[k].neibour_set)):
-                neibors.append([self.swarm[k].neibour_set[m].pos[0], self.swarm[k].neibour_set[m].pos[1]])
-            if len(neibors) != 0:
-                x_points, y_points = zip(*neibors)
-                # 绘制连线
-                for x, y in neibors:
-                    plt.plot([self.swarm[k].pos[0], x], [self.swarm[k].pos[1], y], 'g--', linewidth=0.1, zorder=1)
+            self.ax.set_aspect('auto', 'box')
+            self.ax.set_xlim(0, field.width)
+            self.ax.set_ylim(0, field.height)
 
-        self.ax.set_aspect('auto', 'box')
-        self.ax.set_xlim(0, field.width)
-        self.ax.set_ylim(0, field.height)
-
-        self.ax.tick_params(axis='x', colors='red')
-        self.ax.tick_params(axis='y', colors='blue')
-        circle = plt.Circle((self.target_x, self.target_y), self.target_radius, color='r', fill=False)
-        plt.gcf().gca().add_artist(circle)
-        plt.pause(0.01)
+            self.ax.tick_params(axis='x', colors='red')
+            self.ax.tick_params(axis='y', colors='blue')
+            circle = plt.Circle((self.target_x, self.target_y), self.target_radius, color='r', fill=False)
+            plt.gcf().gca().add_artist(circle)
+            plt.pause(0.01)
         # 清除个体的邻居集合
         for n in range(len(self.swarm)):
-            self.swarm[n].neibour_set = []
+            self.swarm[n].neibour_set_attract = []
+            self.swarm[n].neibour_set_repulse = []
+
+        connect_value = self.connectivity_cal()
+        print("connect_value:{}".format(connect_value))
+
+    def connectivity_cal(self):
+        connectivity = 0
+
+        # 计算连通度
+        class Uav:
+            def __init__(self, id, p_x, p_y):
+                self.id = id
+                self.p_x = p_x
+                self.p_y = p_y
+
+        def is_in(l1, l2):
+            for item in l2:
+                if l1.id == item.id:
+                    return True
+            return False
+
+        # # 为了分类进行拷贝
+        # def deep_copy(l1, l2):
+        #     for p in l1:
+        #         uav = Uav()
+        #         uav.id = p.id
+        #         uav.p_x = p.p_x
+        #         uav.p_y = p.p_y
+        #         l2.append(uav)
+
+        def is_all_adjacent_nodes_visited(temp, layer, ls):
+            for item in layer:
+                # logging.info("ls:{}".format(print_f(ls)))
+                adjacent_nodes = find_adjacent_nodes(item, ls)
+                # logging.info(" adjacent_nodes40:{}".format(print_f(adjacent_nodes)))
+                for item1 in adjacent_nodes:
+                    cons = False
+                    for item2 in temp:
+                        if item1.id == item2.id:
+                            cons = True
+                    if not cons:
+                        return False
+            return True
+
+        def find_adjacent_nodes(node, agent_set):
+            adjacent_nodes = []
+            for agent in agent_set:
+                if node.id != agent.id:
+                    if is_connected(node, agent):
+                        adjacent_nodes.append(agent)
+            return adjacent_nodes
+
+        def is_connected(a1, a2):
+            if math.sqrt((a1.p_x - a2.p_x) ** 2 + (a1.p_y - a2.p_y) ** 2) <= 20:
+                return True
+            return False
+
+        def cal_cluster(ls):
+            clusters = []
+            while len(ls) != 0:
+                temp = ls[0]
+                # logging.info("temp:{}".format(temp.id))
+                temp1 = [temp]
+                adjacent_nodes = [temp]
+                while not is_all_adjacent_nodes_visited(temp1, adjacent_nodes, ls):
+                    adjacent_nodes_temp = []
+                    for node in adjacent_nodes:
+                        adjacent_nodes1 = find_adjacent_nodes(node, ls)
+                        # logging.info("adjacent_nodes1:{}".format(print_f(adjacent_nodes1)))
+                        for adjacent_node in adjacent_nodes1:
+                            if is_in(adjacent_node, temp1):
+                                continue
+                            # temp1是一个子群的点
+                            temp1.append(adjacent_node)
+                            # 邻居节点添加到所在层
+                            adjacent_nodes_temp.append(adjacent_node)
+                    # adjacent_nodes_temp 新的层的邻居的集合
+                    adjacent_nodes = adjacent_nodes_temp
+                # logging.info("temp1:{}".format(print_f(temp1)))
+                clusters.append(temp1)
+
+                i = 0
+                while i < len(ls):
+                    j = 0
+                    while j < len(temp1):
+                        if ls[i].id == temp1[j].id:
+                            ls.pop(i)
+                            i -= 1  # 减少 i 以便继续检查当前位置
+                            break
+                        j += 1
+                    i += 1
+
+                # item_set = []
+                # for item in ls:
+                #     item_set.append([item.id,item.p_x,item.p_y])
+                # logging.info("ls:{}".format(item_set))
+
+            return clusters
+
+        # 连通度计算
+        # 通过deepcopy 创建UAV集合
+        uavs = []
+        for item in self.swarm:
+            uavs.append(Uav(item.id, item.pos[0], item.pos[1]))
+        # 计算分群
+        cons_flock = cal_cluster(uavs)
+        # 创建领导者id群
+        leader_id_set = []
+        for item in self.leader_list:
+            leader_id_set.append(self.swarm[item].id)
+        sub_swarm_set = []
+        for sub_flock in cons_flock:
+            for sub_flock_item in sub_flock:
+                if sub_flock_item.id in leader_id_set:
+                    break
+            sub_swarm_set.append(sub_flock)
+
+        for flock_contains_leadr in sub_swarm_set:
+            subswarm_length = len(flock_contains_leadr)
+            if subswarm_length!=0:
+                connectivity = connectivity + subswarm_length * (subswarm_length - 1)
+        connectivity = connectivity / (len(self.swarm)*(len(self.swarm)-1))
+        return connectivity
 
 
 couzin = Couzin()
