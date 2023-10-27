@@ -415,15 +415,9 @@ class Couzin(gym.Env):
         connect_value = self.connectivity_cal()
 
         self.total_steps = self.total_steps + 1
-        if self.total_steps > 1500:
-            done = True
 
 
-
-        observation = 0
-
-
-
+        observation = []
 
         # 奖励函数设计, observation的设计
         # 连通度设计奖励，到达奖励的设计
@@ -434,8 +428,12 @@ class Couzin(gym.Env):
         """
         arrival_rate = self.arrival_proportion_cal()
         self.reward = self.reward + connect_value + arrival_rate * 50
+        if self.total_steps > 1500:
+            done = True
+        observation = self.swarm
+        # observation  observation以self.swarm作为返回
+        return self.swarm, self.reward, done
 
-        #
 
 
     def connectivity_cal(self):
