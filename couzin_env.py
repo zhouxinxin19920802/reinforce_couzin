@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # @Author  : zhouxin
 # @Time    : 2023/10/6 19:35
-# @File    : Main.py.py
+# @File    : couzin_env.py.py
 # @annotation    :
 import math
 from abc import ABC
