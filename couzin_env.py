@@ -127,6 +127,7 @@ class Agent:
             self.pos[1] = self.pos[1] + field.height
 
 
+
 class Couzin(gym.Env):
     # 初始化
     """
@@ -195,11 +196,15 @@ class Couzin(gym.Env):
         #  奖励是总的奖励，而观察室暂态的
         self.reward = 0
 
+        # 存储上一个状态
+        self.last_observation = self.swarm
+
     # 核心函数
     # 奖励函数-运动趋势
     # 分裂-惩罚 平均空间相关度
     # 整体reward 到达目标点大的reward
-    def step(self):
+    # 每个step要输入action，只有输入action后才能输出序列，每个个体要输出一个可视角
+    def step(self, action):
         # actions 是一个集合，包含追随者的可视角和领综合
 
         # 遍历集群
