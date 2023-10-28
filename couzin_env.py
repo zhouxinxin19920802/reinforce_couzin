@@ -199,6 +199,24 @@ class Couzin(gym.Env):
         # 存储上一个状态
         self.last_observation = self.swarm
 
+
+    def reset(self):
+        # 每次迭代完, 重置swarm, 各个智能体的位置和速度方向
+        swarm = []
+        [swarm.append(Agent(i, self.constant_speed)) for i in range(self.n)]
+        self.swarm = swarm
+
+        self.leader_list = get_n_rand(self.n, self.p)
+        logging.info("leader_num:{}".format(self.leader_list))
+
+        # 更新领导者标志
+        for j in range(len(self.swarm)):
+            for leader_id in self.leader_list:
+                if j == leader_id:
+                    self.swarm[j].is_leader = True
+
+
+
     # 核心函数
     # 奖励函数-运动趋势
     # 分裂-惩罚 平均空间相关度
