@@ -21,7 +21,7 @@ from torch.autograd import Variable
 
 x = torch.unsqueeze(torch.linspace(-1, 1, 100), dim=1)
 y = x.pow(3) + 0.1 * torch.randn(x.size())
-# logging.info("x:{}".format(x))
+logging.info("x:{}".format(x))
 # logging.info("x_size:{}".format(x.size()))
 # logging.info("x_value:{}".format(torch.randn(x.size())))
 # logging.info("y:{}".format(y))
