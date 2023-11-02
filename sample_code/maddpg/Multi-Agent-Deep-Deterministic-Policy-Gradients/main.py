@@ -19,7 +19,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.WARNING)
 
 
-
+# Array合并为list
 def obs_list_to_state_vector(observation):
     state = np.array([])
     for obs in observation:

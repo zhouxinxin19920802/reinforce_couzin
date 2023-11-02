@@ -24,8 +24,7 @@ class CriticNetwork(nn.Module):
         print("self.chkpt_file:",self.chkpt_file)
         
 
-        # logging.info("input_dims+n_agents*n_actions:{}".format(input_dims+n_agents*n_actions))
-        # logging.info("input_dims+n_agents*n_actions:{}".format(input_dims+n_agents*n_actions))
+        # 28 + 3 * 5 = 43
         self.fc1 = nn.Linear(input_dims+n_agents*n_actions, fc1_dims)
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)
         self.q = nn.Linear(fc2_dims, 1)

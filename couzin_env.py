@@ -222,7 +222,9 @@ class Couzin(gym.Env):
     # 分裂-惩罚 平均空间相关度
     # 整体reward 到达目标点大的reward
     # 每个step要输入action，只有输入action后才能输出序列，每个个体要输出一个可视角
-    def step(self, action):
+    # 增加actions, 给每个个体增加可视角集合 actions = [a1, a2, a3, a4]
+
+    def step(self,actions):
         # actions 是一个集合，包含追随者的可视角和领综合
 
         # 遍历集群
@@ -264,6 +266,11 @@ class Couzin(gym.Env):
                             r_normalized = r / norm(r)
                         # 位置向量标准化
                         norm_r = norm(r)
+
+                        # 通过actions 给每个个体可视角赋值
+
+
+
                         # 速度向量
                         agent_vel_normalized = agent.vel / norm(agent.vel)
                         if cal_angle_of_vector(r_normalized, agent_vel_normalized) < self.field_of_view / 2:
@@ -455,7 +462,7 @@ class Couzin(gym.Env):
             done = True
         observation = self.swarm
         # observation  observation以self.swarm作为返回
-        return self.swarm, self.reward, done
+        # return self.swarm, self.reward, done
 
 
 
