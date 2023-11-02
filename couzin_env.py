@@ -3,19 +3,16 @@
 # @Time    : 2023/10/6 19:35
 # @File    : couzin_env.py.py
 # @annotation    :
-import math
-from abc import ABC
-import time
-from numpy.linalg import *
-from math import *
-import gym
-from gym import spaces
-import matplotlib.pyplot as plt
-import numpy as np
-import random
-
 # 日志模块
 import logging
+import math
+import random
+from math import *
+
+import gym
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy.linalg import *
 
 logging.basicConfig(
     level=logging.DEBUG,  # 控制台打印的日志级别
@@ -115,6 +112,9 @@ class Agent:
         # 每个点的排斥邻域集合
         self.neibour_set_repulse = []
 
+        # field_of_view 可修改
+        self.field_of_view = 4 * pi / 2
+
     def update_position(self, delta_t):
         self.pos = self.pos + self.vel * delta_t
         if self.pos[0] < 0:
@@ -125,7 +125,6 @@ class Agent:
             self.pos[1] = self.pos[1] - field.height
         if self.pos[1] < 0:
             self.pos[1] = self.pos[1] + field.height
-
 
 
 class Couzin(gym.Env):
@@ -167,8 +166,6 @@ class Couzin(gym.Env):
         self.dt = 0.2
 
         ##################################################
-        # field_of_view 可修改
-        self.field_of_view = 4 * pi / 2
 
         # 生成领导者
         self.leader_list = get_n_rand(self.n, self.p)
@@ -199,7 +196,6 @@ class Couzin(gym.Env):
         # 存储上一个状态
         self.last_observation = self.swarm
 
-
     def reset(self):
         # 每次迭代完, 重置swarm, 各个智能体的位置和速度方向
         swarm = []
@@ -215,8 +211,6 @@ class Couzin(gym.Env):
                 if j == leader_id:
                     self.swarm[j].is_leader = True
 
-
-
     # 核心函数
     # 奖励函数-运动趋势
     # 分裂-惩罚 平均空间相关度
@@ -224,11 +218,14 @@ class Couzin(gym.Env):
     # 每个step要输入action，只有输入action后才能输出序列，每个个体要输出一个可视角
     # 增加actions, 给每个个体增加可视角集合 actions = [a1, a2, a3, a4]
 
-    def step(self,actions):
+    def step(self, actions):
         # actions 是一个集合，包含追随者的可视角和领综合
+        # obs_ 存储每个个体观察区的个体位置(pos,vel)，
+        obs_ = []
 
         # 遍历集群
-        for agent in self.swarm:
+        for i in range(len(self.swarm)):
+            agent = self.swarm[i]
             # 2005 couzin领导模型
             d = 0
             # 排斥域
@@ -237,6 +234,9 @@ class Couzin(gym.Env):
             da = 0
             # 当前个体的速度
             dv = agent.vel
+
+            # 更新各个个体的可视角
+            agent.field_of_view = actions[i]
 
             if agent.is_leader:
                 agent.g = np.array([self.target_x, self.target_y]) - agent.pos
@@ -250,11 +250,12 @@ class Couzin(gym.Env):
                 agent.vel = np.array([self.target_x - agent.pos[0], self.target_y - agent.pos[1]])
                 agent.vel = agent.vel / norm(agent.vel)
             else:
-                for neighbor in self.swarm:
+                for j in range(len(self.swarm)):
+                    neighbor = self.swarm[j]
                     visual_vector = np.array([neighbor.pos[0] - agent.pos[0], neighbor.pos[1] - agent.pos[1]])
                     if agent.id != neighbor.id and cal_distance(agent,
                                                                 neighbor) < self.attract_range and cal_angle_of_vector(
-                        visual_vector, agent.vel) < self.field_of_view / 2:
+                        visual_vector, agent.vel) < agent.field_of_view / 2:
 
                         neighbor_count = neighbor_count + 1
                         # 位置向量，单位位置向量，距离
@@ -269,11 +270,9 @@ class Couzin(gym.Env):
 
                         # 通过actions 给每个个体可视角赋值
 
-
-
                         # 速度向量
                         agent_vel_normalized = agent.vel / norm(agent.vel)
-                        if cal_angle_of_vector(r_normalized, agent_vel_normalized) < self.field_of_view / 2:
+                        if cal_angle_of_vector(r_normalized, agent_vel_normalized) < agent.field_of_view / 2:
                             if norm_r < self.a_minimal_range:
                                 # 添加排斥区域
                                 agent.neibour_set_repulse.append(neighbor)
@@ -327,7 +326,11 @@ class Couzin(gym.Env):
                             agent.vel = vel1 / norm(vel1) * self.constant_speed
                     else:
                         agent.vel = d * self.constant_speed
-
+            # 建立一个空数组长度 4 * (N - 1)
+            obs_singler = [0] * 4
+            # 将邻居信息更新在obs_singler中
+            # obs_ =
+            #  test
         # 更新各个点的坐标位置
         [agent.update_position(self.dt) for agent in self.swarm]
         # 输出各个智能体的编号，坐标，速度方向,是否是领导者
@@ -446,7 +449,6 @@ class Couzin(gym.Env):
 
         self.total_steps = self.total_steps + 1
 
-
         observation = []
 
         # 奖励函数设计, observation的设计
@@ -463,8 +465,6 @@ class Couzin(gym.Env):
         observation = self.swarm
         # observation  observation以self.swarm作为返回
         # return self.swarm, self.reward, done
-
-
 
     def connectivity_cal(self):
         connectivity = 0
@@ -595,5 +595,6 @@ class Couzin(gym.Env):
 
 
 couzin = Couzin()
+actions = []
 for i in range(1000):
-    couzin.step()
+    couzin.step(actions)
