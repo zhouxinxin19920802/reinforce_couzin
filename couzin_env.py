@@ -44,6 +44,10 @@ class Field:
 field = Field()
 
 
+# 将列表转化为列表
+# def convert_list():
+
+
 # 计算两个方向的夹角
 def cal_angle_of_vector(v1, v2):
     # print(v1,v2)
@@ -143,7 +147,7 @@ class Couzin(gym.Env):
         # 初始化参数
         # 初始化集群中个体数量
 
-        self.n = 20
+        self.n = 10
         # 初始化排斥距离
         self.a_minimal_range = 10
         # 初始化吸引距离
@@ -221,7 +225,7 @@ class Couzin(gym.Env):
     def step(self, actions):
         # actions 是一个集合，包含追随者的可视角和领综合
         # obs_ 存储每个个体观察区的个体位置(pos,vel)，
-        obs_ = []
+        obs_ = [[] for _ in range(self.n)]
 
         # 遍历集群
         for i in range(len(self.swarm)):
@@ -329,8 +333,18 @@ class Couzin(gym.Env):
             # 建立一个空数组长度 4 * (N - 1)
             obs_singler = [0] * 4
             # 将邻居信息更新在obs_singler中
-            # obs_ =
-            #  test
+            # 将单个个体的观察空间长度固定
+            obs_single = [0] * (self.n - 1) * 4
+            p = 0
+            for item in agent.neibour_set_attract:
+                obs_single[p] = item.pos[0]
+                obs_single[p + 1] = item.pos[1]
+                obs_single[p + 2] = item.vel[0]
+                obs_single[p + 3] = item.vel[1]
+
+                p = p + 4
+
+            obs_[i].append(obs_single)
         # 更新各个点的坐标位置
         [agent.update_position(self.dt) for agent in self.swarm]
         # 输出各个智能体的编号，坐标，速度方向,是否是领导者
@@ -449,7 +463,6 @@ class Couzin(gym.Env):
 
         self.total_steps = self.total_steps + 1
 
-        observation = []
 
         # 奖励函数设计, observation的设计
         # 连通度设计奖励，到达奖励的设计
@@ -460,13 +473,14 @@ class Couzin(gym.Env):
         """
         arrival_rate = self.arrival_proportion_cal()
         self.reward = self.reward + connect_value + arrival_rate * 50
+        done = False
         if self.total_steps > 1500:
             done = True
-        observation = self.swarm
-        # observation  observation以self.swarm作为返回
-        obs_ = []
-        #
-        return "running"
+
+        state = []
+        logging.info("obs:{}".format(obs_))
+
+        return obs_, done
 
     def connectivity_cal(self):
         connectivity = 0
@@ -600,4 +614,3 @@ couzin = Couzin()
 actions = [2 * math.pi] * couzin.n
 for i in range(1000):
     cons = couzin.step(actions)
-    print(cons)
