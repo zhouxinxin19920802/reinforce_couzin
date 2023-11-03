@@ -464,7 +464,9 @@ class Couzin(gym.Env):
             done = True
         observation = self.swarm
         # observation  observation以self.swarm作为返回
-        # return self.swarm, self.reward, done
+        obs_ = []
+        #
+        return "running"
 
     def connectivity_cal(self):
         connectivity = 0
@@ -595,6 +597,7 @@ class Couzin(gym.Env):
 
 
 couzin = Couzin()
-actions = []
+actions = [2 * math.pi] * couzin.n
 for i in range(1000):
-    couzin.step(actions)
+    cons = couzin.step(actions)
+    print(cons)
