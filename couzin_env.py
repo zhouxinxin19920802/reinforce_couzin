@@ -45,7 +45,23 @@ field = Field()
 
 
 # 将列表转化为列表
-# def convert_list():
+def convert_list(obs):
+    state = []
+    for i in range(len(obs)):
+        for j in range(len(obs[i])):
+            for k in range(len(obs[i][j])):
+                state.append(obs[i][j][k])
+    return state
+
+
+def convert_list1(obs):
+    state = []
+    for i in range(len(obs)):
+        state_s = []
+        for j in range(len(obs[i])):
+            state_s = np.concatenate([state_s, obs[i][j]])
+        state = np.concatenate([state, state_s])
+    return state
 
 
 # 计算两个方向的夹角
@@ -68,7 +84,7 @@ def get_n_rand(n, p):
     leader_list = set()
     while True:
         leader_list.add(random.randint(0, n - 1))
-        if len(leader_list) == n * p:
+        if len(leader_list) == math.floor(n * p):
             break
     return leader_list
 
@@ -147,7 +163,7 @@ class Couzin(gym.Env):
         # 初始化参数
         # 初始化集群中个体数量
 
-        self.n = 10
+        self.n = 8
         # 初始化排斥距离
         self.a_minimal_range = 10
         # 初始化吸引距离
@@ -160,7 +176,10 @@ class Couzin(gym.Env):
         self.p = 0.3
         # swarm 生成集群
         self.swarm = []
+        print("running")
+
         [self.swarm.append(Agent(i, self.constant_speed)) for i in range(self.n)]
+
         # 需要修改，个体位置初始化时候
         # 生成第一个个体的坐标
         self.observation = []
@@ -173,6 +192,7 @@ class Couzin(gym.Env):
 
         # 生成领导者
         self.leader_list = get_n_rand(self.n, self.p)
+        print("running1")
         logging.info("leader_num:{}".format(self.leader_list))
 
         # 更新领导者标志
@@ -334,15 +354,15 @@ class Couzin(gym.Env):
             obs_singler = [0] * 4
             # 将邻居信息更新在obs_singler中
             # 将单个个体的观察空间长度固定
-            obs_single = [0] * (self.n - 1) * 4
+            obs_single = [[] for _ in range(self.n - 1)]
             p = 0
             for item in agent.neibour_set_attract:
-                obs_single[p] = item.pos[0]
-                obs_single[p + 1] = item.pos[1]
-                obs_single[p + 2] = item.vel[0]
-                obs_single[p + 3] = item.vel[1]
-
-                p = p + 4
+                obs_single[p] = [item.pos[0], item.pos[1], item.vel[0], item.vel[1]]
+                p = p + 1
+            # 多余补0
+            for m in range(len(obs_single)):
+                if len(obs_single[m]) == 0:
+                    obs_single[m] = [0, 0, 0, 0]
 
             obs_[i].append(obs_single)
         # 更新各个点的坐标位置
@@ -477,10 +497,10 @@ class Couzin(gym.Env):
         if self.total_steps > 1500:
             done = True
 
-        state = []
+        state = convert_list1(obs_)
         logging.info("obs:{}".format(obs_))
 
-        return obs_, done
+        return obs_, state, self.reward
 
     def connectivity_cal(self):
         connectivity = 0
@@ -611,6 +631,9 @@ class Couzin(gym.Env):
 
 
 couzin = Couzin()
+
 actions = [2 * math.pi] * couzin.n
-for i in range(1000):
+
+cons = couzin.step(actions)
+for i in range(100):
     cons = couzin.step(actions)
