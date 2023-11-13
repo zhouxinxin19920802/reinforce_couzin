@@ -14,14 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import *
 
-logging.basicConfig(
-    level=logging.DEBUG,  # 控制台打印的日志级别
-    filename="test_log.txt",
-    filemode="w",  ##模式，有w和a，w就是写模式，每次都会重新写日志，覆盖之前的日志
-    # a是追加模式，默认如果不写的话，就是追加模式
-    format="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s"
-    # 日志格式
-)
 
 
 # 链接Anylogic可视化展示
@@ -54,6 +46,8 @@ def convert_list(obs):
     return state
 
 
+
+# n * (n - 1) * 4
 def convert_list1(obs):
     state = []
     for i in range(len(obs)):
@@ -62,6 +56,27 @@ def convert_list1(obs):
             state_s = np.concatenate([state_s, obs[i][j]])
         state = np.concatenate([state, state_s])
     return state
+
+# n * (n - 1) * 4
+def convert_list3(obs):
+    state = []
+    for i in range(len(obs)):
+        state = np.concatenate([state, obs[i]])
+    return state
+
+
+# n个元素 每个元素(n-1) * 4
+def convert_list2(obs):
+    state = []
+    for i in range(len(obs)):
+        state_s = []
+        for j in range(len(obs[i])):
+            state_s = np.concatenate([state_s, obs[i][j]])
+        state.append(state_s)
+    return state
+
+
+
 
 
 # 计算两个方向的夹角
@@ -147,7 +162,7 @@ class Agent:
             self.pos[1] = self.pos[1] + field.height
 
 
-class Couzin(gym.Env):
+class Couzin():
     # 初始化
     """
     1. 初始化集群数量
@@ -163,7 +178,7 @@ class Couzin(gym.Env):
         # 初始化参数
         # 初始化集群中个体数量
 
-        self.n = 8
+        self.n = 5
         # 初始化排斥距离
         self.a_minimal_range = 10
         # 初始化吸引距离
@@ -192,8 +207,8 @@ class Couzin(gym.Env):
 
         # 生成领导者
         self.leader_list = get_n_rand(self.n, self.p)
-        print("running1")
-        logging.info("leader_num:{}".format(self.leader_list))
+        # print("running1")
+        # logging.info("leader_num:{}".format(self.leader_list))
 
         # 更新领导者标志
         for j in range(len(self.swarm)):
@@ -227,13 +242,60 @@ class Couzin(gym.Env):
         self.swarm = swarm
 
         self.leader_list = get_n_rand(self.n, self.p)
-        logging.info("leader_num:{}".format(self.leader_list))
+        # logging.info("leader_num:{}".format(self.leader_list))
 
         # 更新领导者标志
         for j in range(len(self.swarm)):
             for leader_id in self.leader_list:
                 if j == leader_id:
                     self.swarm[j].is_leader = True
+        obs_ = [[] for _ in range(self.n)]
+       # 添加功能,返回各个点的观察域
+        for i in range(len(self.swarm)):
+            agent = self.swarm[i]
+            for j in range(len(self.swarm)):
+                neighbor = self.swarm[j]
+                visual_vector = np.array([neighbor.pos[0] - agent.pos[0], neighbor.pos[1] - agent.pos[1]])
+                if agent.id != neighbor.id and cal_distance(agent,
+                                                            neighbor) < self.attract_range and cal_angle_of_vector(
+                    visual_vector, agent.vel) < agent.field_of_view / 2:
+
+                    # 位置向量，单位位置向量，距离
+                    r = neighbor.pos - agent.pos
+                    if norm(r) == 0:
+                        r_normalized = r
+                    else:
+                        r_normalized = r / norm(r)
+                    # 位置向量标准化
+                    norm_r = norm(r)
+                    # 速度向量
+                    agent_vel_normalized = agent.vel / norm(agent.vel)
+                    if cal_angle_of_vector(r_normalized, agent_vel_normalized) < agent.field_of_view / 2:
+                        if norm_r < self.a_minimal_range:
+                            # 添加排斥区域
+                            agent.neibour_set_repulse.append(neighbor)
+                        elif norm_r < self.attract_range:
+                            # 添加吸引区域邻域集合
+                            # logging.info("{}:adding".format(agent.id))
+                            agent.neibour_set_attract.append(neighbor)
+            obs_single = [[] for _ in range(self.n - 1)]
+            p = 0
+            for item in agent.neibour_set_attract:
+                obs_single[p] = [item.pos[0], item.pos[1], item.vel[0], item.vel[1]]
+                p = p + 1
+            # 多余补0
+            for m in range(len(obs_single)):
+                if len(obs_single[m]) == 0:
+                    obs_single[m] = [0, 0, 0, 0]
+            obs_[i] = obs_single
+        # obs_ 的转化
+        # logging.info("obs_:{}".format(obs_))
+        obs = convert_list2(obs_)
+        # logging.info("obs:{}".format(obs))
+        # 在reset时候，同时需要将reward重置
+        self.reward = 0
+
+        return obs
 
     # 核心函数
     # 奖励函数-运动趋势
@@ -246,10 +308,13 @@ class Couzin(gym.Env):
         # actions 是一个集合，包含追随者的可视角和领综合
         # obs_ 存储每个个体观察区的个体位置(pos,vel)，
         obs_ = [[] for _ in range(self.n)]
-
+        # logging.info("zzzz")
         # 遍历集群
         for i in range(len(self.swarm)):
             agent = self.swarm[i]
+            # 清空排斥区域/吸引区域
+            agent.neibour_set_attract = []
+            agent.neibour_set_repulse = []
             # 2005 couzin领导模型
             d = 0
             # 排斥域
@@ -277,6 +342,11 @@ class Couzin(gym.Env):
                 for j in range(len(self.swarm)):
                     neighbor = self.swarm[j]
                     visual_vector = np.array([neighbor.pos[0] - agent.pos[0], neighbor.pos[1] - agent.pos[1]])
+                    # 可视性检查
+                    # logging.info("visual:{}".format(agent.id != neighbor.id and cal_distance(agent,
+                    #                                             neighbor) < self.attract_range and cal_angle_of_vector(
+                    #     visual_vector, agent.vel) < agent.field_of_view / 2))
+
                     if agent.id != neighbor.id and cal_distance(agent,
                                                                 neighbor) < self.attract_range and cal_angle_of_vector(
                         visual_vector, agent.vel) < agent.field_of_view / 2:
@@ -298,12 +368,14 @@ class Couzin(gym.Env):
                         agent_vel_normalized = agent.vel / norm(agent.vel)
                         if cal_angle_of_vector(r_normalized, agent_vel_normalized) < agent.field_of_view / 2:
                             if norm_r < self.a_minimal_range:
+                                # logging.info("{}:rejecting".format(agent.id))
                                 # 添加排斥区域
                                 agent.neibour_set_repulse.append(neighbor)
                                 # 排斥区域，位置累计
                                 dr = dr - r_normalized
                             elif norm_r < self.attract_range:
                                 # 添加吸引区域邻域集合
+                                # logging.info("{}:adding11".format(agent.id))
                                 agent.neibour_set_attract.append(neighbor)
                                 # 吸引区域位置向量累计
                                 da = da + r_normalized
@@ -350,13 +422,16 @@ class Couzin(gym.Env):
                             agent.vel = vel1 / norm(vel1) * self.constant_speed
                     else:
                         agent.vel = d * self.constant_speed
-            # 建立一个空数组长度 4 * (N - 1)
-            obs_singler = [0] * 4
-            # 将邻居信息更新在obs_singler中
+
+            # 将邻居信息更新在obs_single中
             # 将单个个体的观察空间长度固定
             obs_single = [[] for _ in range(self.n - 1)]
+            # logging.info(
+            #     "attract:{}".format(agent.neibour_set_attract))
             p = 0
             for item in agent.neibour_set_attract:
+                # logging.info("p:{},{},{},{},{}".format(agent.id, p, len(obs_single), len(agent.neibour_set_attract), item.id))
+
                 obs_single[p] = [item.pos[0], item.pos[1], item.vel[0], item.vel[1]]
                 p = p + 1
             # 多余补0
@@ -364,7 +439,7 @@ class Couzin(gym.Env):
                 if len(obs_single[m]) == 0:
                     obs_single[m] = [0, 0, 0, 0]
 
-            obs_[i].append(obs_single)
+            obs_[i]  = obs_single
         # 更新各个点的坐标位置
         [agent.update_position(self.dt) for agent in self.swarm]
         # 输出各个智能体的编号，坐标，速度方向,是否是领导者
@@ -480,6 +555,7 @@ class Couzin(gym.Env):
             self.swarm[n].neibour_set_repulse = []
 
         connect_value = self.connectivity_cal()
+        logging.info("connect_value:{}".format(connect_value))
 
         self.total_steps = self.total_steps + 1
 
@@ -493,14 +569,18 @@ class Couzin(gym.Env):
         """
         arrival_rate = self.arrival_proportion_cal()
         self.reward = self.reward + connect_value + arrival_rate * 50
-        done = False
-        if self.total_steps > 1500:
-            done = True
+        done = [False] * self.n
+        if self.total_steps > 3000 and connect_value < 0.5:
+            done = [True] * self.n
 
-        state = convert_list1(obs_)
-        logging.info("obs:{}".format(obs_))
+        obs_ = convert_list2(obs_)
+        # state = convert_list1(obs_)
+        # logging.info("obs:{}".format(obs_))
 
-        return obs_, state, self.reward
+        resward = [self.reward] * len(self.swarm)
+
+        return obs_,  resward, done,
+
 
     def connectivity_cal(self):
         connectivity = 0
@@ -630,10 +710,17 @@ class Couzin(gym.Env):
         return arrival_num / len(self.swarm)
 
 
-couzin = Couzin()
 
-actions = [2 * math.pi] * couzin.n
 
-cons = couzin.step(actions)
-for i in range(100):
-    cons = couzin.step(actions)
+
+if __name__ == '__main__':
+    # actions = [2 * math.pi] * couzin.n
+    #
+    # cons = couzin.step(actions)
+    # for i in range(100):
+    #     cons = couzin.step(actions)
+    couzin = Couzin()
+
+    obs = couzin.reset()
+    print(obs)
+
