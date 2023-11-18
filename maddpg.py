@@ -3,15 +3,17 @@ import torch.nn.functional as F
 from agent import Agent
 import logging
 import torch
+from networks import ActorNetwork
+
 torch.autograd.set_detect_anomaly(True)
-logging.basicConfig(
-    level=logging.DEBUG,  # 控制台打印的日志级别
-    filename="test_log.txt",
-    filemode="w",  ##模式，有w和a，w就是写模式，每次都会重新写日志，覆盖之前的日志
-    # a是追加模式，默认如果不写的话，就是追加模式
-    format="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s"
-    # 日志格式
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,  # 控制台打印的日志级别
+#     filename="test_log.txt",
+#     filemode="w",  ##模式，有w和a，w就是写模式，每次都会重新写日志，覆盖之前的日志
+#     # a是追加模式，默认如果不写的话，就是追加模式
+#     format="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s"
+#     # 日志格式
+# )
 
 
 class MADDPG:
@@ -25,10 +27,35 @@ class MADDPG:
 
         # Agent里面包含了 各个智能体里的网络初始
         # 各个智能体的网络的 初始化，参数更新，模型保存
+        # for agent_idx in range(self.n_agents):
+        #     self.agents.append(Agent(actor_dims[agent_idx], critic_dims,
+        #                              n_actions, n_agents, agent_idx, alpha=alpha, beta=beta,
+        #                              chkpt_dir=chkpt_dir))
+
+        # 增加一个功能,actor网络和共享，先创建第一个actor网络，然后再向其它actor网络共享
+        # 直接创建actor网络和target actor网络进行传入
+        # 需要在更新时候同步更新
+        ####################################################################  
+        # 网络创建
+        # 直接输入actor维数
+        actor_dims = (n_agents - 1) * 4
+        fc1 = 64
+        fc2 = 64
+        n_actions = 1
+        alpha=0.01
+        general_actor_name = "general_actor"
+        general_target_actor_name = "general_actor_name"
+        general_actor = ActorNetwork(alpha, actor_dims, fc1, fc2, n_actions, 
+                                  chkpt_dir=chkpt_dir,  name=general_actor_name) 
+        general_target_actor = ActorNetwork(alpha, actor_dims, fc1, fc2, n_actions, 
+                                  chkpt_dir=chkpt_dir,  name=general_target_actor_name) 
+        # 传入每个agent里面
+        logging.info("chkpt_dir:{}".format(chkpt_dir))
         for agent_idx in range(self.n_agents):
-            self.agents.append(Agent(actor_dims[agent_idx], critic_dims,
-                                     n_actions, n_agents, agent_idx, alpha=alpha, beta=beta,
-                                     chkpt_dir=chkpt_dir))
+            self.agents.append(Agent(general_actor, general_target_actor, critic_dims,
+                                        n_actions, n_agents, agent_idx, alpha=alpha, beta=beta,
+                                        chkpt_dir=chkpt_dir))
+
 
     def save_checkpoint(self):
         print('... saving checkpoint ...')
@@ -51,6 +78,7 @@ class MADDPG:
         if not memory.ready():
             return
 
+        print("learing")
         actor_states, states, actions, rewards, \
         actor_new_states, states_, dones = memory.sample_buffer()
         logging.info("actor_states:{}".format(states))
@@ -137,5 +165,6 @@ class MADDPG:
             agent.actor.optimizer.zero_grad()
             actor_loss.backward(retain_graph=True)
             agent.actor.optimizer.step()
-
             agent.update_network_parameters()
+
+            # 如果直接更新的话，循环对每个个体进行更新的时候，每次actor和target_actor都会被更新

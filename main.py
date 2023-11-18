@@ -10,7 +10,6 @@ import couzin_env as env
 import torch
 torch.autograd.set_detect_anomaly(True)
 import logging
-
 logging.basicConfig(
     level=logging.INFO,  # 控制台打印的日志级别
     filename="test_log_0.txt",
@@ -19,6 +18,9 @@ logging.basicConfig(
     format="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s"
     # 日志格式
 )
+logger = logging.getLogger()
+logger.setLevel(logging.WARNING)
+
 
 
 def convert_list1(obs):
@@ -32,7 +34,7 @@ def convert_list1(obs):
 
 
 if __name__ == '__main__':
-    env_ = env.Couzin()
+    env_ = env.Couzin(20,0.2,Is_visual=True)
     n_agents = env_.n
     logging.info("n_agents:{}".format(n_agents))
     # 观察个体的集合
@@ -49,18 +51,18 @@ if __name__ == '__main__':
                            fc1=64, fc2=64,
                            alpha=0.01, beta=0.01, scenario=scenario,
                            chkpt_dir='tmp\\maddpg\\')
-    memory = MultiAgentReplayBuffer(1000000, critic_dims, actor_dims,
-                                    n_actions, n_agents, batch_size=10)
+    memory = MultiAgentReplayBuffer(10000, critic_dims, actor_dims,
+                                    n_actions, n_agents, batch_size=100)
     # 打印间隔
     PRINT_INTERVAL = 500
-    N_GAMES = 2000
+    N_GAMES = 100
     # steps 的次数
-    MAX_STEPS = 25
+    MAX_STEPS = 100000
     total_steps = 0
     #
     score_history = []
-    evaluate = False
-    best_score = -85
+    evaluate = True
+    best_score = 500 
 
     if evaluate:
         maddpg_agents.load_checkpoint()
@@ -72,7 +74,7 @@ if __name__ == '__main__':
         episode_step = 0
         while not any(done):
             if evaluate:
-                env.is_visual = False
+                env.is_visual = True
                 # time.sleep(0.1) # to slow down the action for the video
             # logging.info("obs_before:{}".format(obs))
             actions = maddpg_agents.choose_action(obs)
@@ -103,13 +105,16 @@ if __name__ == '__main__':
                 maddpg_agents.learn(memory)
 
             obs = obs_
-
-            score += sum(reward)
+            # print("reward:{}".format(reward))
+            score += sum(reward)/len(reward)
             total_steps += 1
             episode_step += 1
 
         score_history.append(score)
         avg_score = np.mean(score_history[-100:])
+        # 打印运行的次数
+        print("running_times:{}".format(i))
+        print("avg_score:{}".format(avg_score))
         if not evaluate:
             if avg_score > best_score:
                 maddpg_agents.save_checkpoint()

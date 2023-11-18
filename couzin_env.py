@@ -174,11 +174,11 @@ class Couzin():
     7. 初始化角速度
     """
 
-    def __init__(self):
+    def __init__(self,N,P, Is_visual = True):
         # 初始化参数
         # 初始化集群中个体数量
 
-        self.n = 5
+        self.n = N
         # 初始化排斥距离
         self.a_minimal_range = 10
         # 初始化吸引距离
@@ -188,7 +188,7 @@ class Couzin():
         # 初始化角速度
         self.theta_dot_max = 2
         # 初始化领导者比例
-        self.p = 0.3
+        self.p = P
         # swarm 生成集群
         self.swarm = []
         print("running")
@@ -224,7 +224,7 @@ class Couzin():
         self.target_radius = 50
 
         # 可视化展示功能开关
-        self.is_visual = True
+        self.is_visual = Is_visual
 
         # 已经运行的steps数量
         self.total_steps = 0
@@ -568,9 +568,11 @@ class Couzin():
            在某个时刻到达终点的个数越多奖励越大 
         """
         arrival_rate = self.arrival_proportion_cal()
-        self.reward = self.reward + connect_value + arrival_rate * 50
+        # reward 为每一步取得的奖励
+        self.reward = connect_value + arrival_rate * 50
         done = [False] * self.n
-        if self.total_steps > 3000 and connect_value < 0.5:
+        # 3个结束条件: 1.总的仿真次数  2.分裂，如果已经提前分裂，则无必要继续训练 3. 到达率到达0.7以上
+        if self.total_steps > 10000 or connect_value < 0.5 or arrival_rate > 0.7:
             done = [True] * self.n
 
         obs_ = convert_list2(obs_)
@@ -597,15 +599,6 @@ class Couzin():
                 if l1.id == item.id:
                     return True
             return False
-
-        # # 为了分类进行拷贝
-        # def deep_copy(l1, l2):
-        #     for p in l1:
-        #         uav = Uav()
-        #         uav.id = p.id
-        #         uav.p_x = p.p_x
-        #         uav.p_y = p.p_y
-        #         l2.append(uav)
 
         def is_all_adjacent_nodes_visited(temp, layer, ls):
             for item in layer:
