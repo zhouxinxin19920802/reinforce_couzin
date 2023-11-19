@@ -45,6 +45,7 @@ class Agent:
             actor_state_dict[name] = tau*actor_state_dict[name].clone() + \
                     (1-tau)*target_actor_state_dict[name].clone()
 
+        # 把actor网络的参数更新到target网络
         self.target_actor.load_state_dict(actor_state_dict)
 
         target_critic_params = self.target_critic.named_parameters()

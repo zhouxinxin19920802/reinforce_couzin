@@ -52,7 +52,7 @@ class CriticNetwork(nn.Module):
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.chkpt_file))
 
-
+# 可视角的actor网络
 class ActorNetwork(nn.Module):
     def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, 
                  n_actions, name, chkpt_dir):
@@ -82,4 +82,37 @@ class ActorNetwork(nn.Module):
 
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.chkpt_file))
+
+
+# 目标影响权重的actor网络
+class ActorNetwork_w(nn.Module):
+    def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, 
+                 n_actions, name, chkpt_dir):
+        super(ActorNetwork_w, self).__init__()
+        # print("name:",name)
+        self.chkpt_file = os.path.join(chkpt_dir, name)
+        # print("self.chkpt_file:",self.chkpt_file)
+
+        self.fc1 = nn.Linear(input_dims, fc1_dims)
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
+        self.fc3 = nn.Linear(fc2_dims, n_actions)
+
+        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+ 
+        self.to(self.device)
+
+    def forward(self, state):
+        x1 =  F.relu(self.fc1(state),inplace=False)
+        x2 =  F.relu(self.fc2(x1),inplace=False)
+        pi1 = F.relu(self.fc3(x2),inplace=False)
+        cons = T.sigmoid(pi1)
+        return cons
+
+    def save_checkpoint(self):
+        T.save(self.state_dict(), self.chkpt_file)
+
+    def load_checkpoint(self):
+        self.load_state_dict(T.load(self.chkpt_file))
+
 

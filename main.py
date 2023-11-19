@@ -18,8 +18,8 @@ logging.basicConfig(
     format="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s"
     # 日志格式
 )
-logger = logging.getLogger()
-logger.setLevel(logging.WARNING)
+# logger = logging.getLogger()
+# logger.setLevel(logging.WARNING)
 
 
 
@@ -38,16 +38,15 @@ if __name__ == '__main__':
     n_agents = env_.n
     logging.info("n_agents:{}".format(n_agents))
     # 观察个体的集合
-    actor_dims = [4 *(n_agents - 1)] * n_agents
+    actor_dims = [4 * n_agents] * n_agents
     # 每个个体的观察长度为 n-1
-    critic_dims = (n_agents - 1) * 4 * n_agents
+    critic_dims = n_agents  * 4 * n_agents
     # actions 先只设置为1
     # action的数量和智能体的数量一致
     n_actions = 1
-    logging.info("test:{}".format("test"))
     # 场景仅为测试
     scenario = "simple"
-    maddpg_agents = MADDPG(actor_dims, critic_dims, n_agents, n_actions,
+    maddpg_agents = MADDPG(env_.leader_list, actor_dims, critic_dims, n_agents, n_actions,
                            fc1=64, fc2=64,
                            alpha=0.01, beta=0.01, scenario=scenario,
                            chkpt_dir='tmp\\maddpg\\')
@@ -61,7 +60,7 @@ if __name__ == '__main__':
     total_steps = 0
     #
     score_history = []
-    evaluate = True
+    evaluate = False
     best_score = 500 
 
     if evaluate:
@@ -84,7 +83,7 @@ if __name__ == '__main__':
 
             obs_,  reward, done = env_.step(actions)
 
-            logging.info("obs_:{},{}".format(obs_, len(obs_)))
+            logging.info("obs_:{}".format(len(obs_[0])))
             logging.info("reward:{},{}".format(reward, len(reward)))
             logging.info("done:{},{}".format(done, len(done)))
 

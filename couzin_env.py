@@ -235,6 +235,7 @@ class Couzin():
         # 存储上一个状态
         self.last_observation = self.swarm
 
+
     def reset(self):
         # 每次迭代完, 重置swarm, 各个智能体的位置和速度方向
         swarm = []
@@ -278,8 +279,9 @@ class Couzin():
                             # 添加吸引区域邻域集合
                             # logging.info("{}:adding".format(agent.id))
                             agent.neibour_set_attract.append(neighbor)
-            obs_single = [[] for _ in range(self.n - 1)]
-            p = 0
+            obs_single = [[] for _ in range(self.n)]
+            obs_single[0] = [agent.pos[0], agent.pos[1], agent.vel[0], agent.vel[1]]
+            p = 1
             for item in agent.neibour_set_attract:
                 obs_single[p] = [item.pos[0], item.pos[1], item.vel[0], item.vel[1]]
                 p = p + 1
@@ -306,6 +308,7 @@ class Couzin():
 
     def step(self, actions):
         # actions 是一个集合，包含追随者的可视角和领综合
+        # actions是个混合动作集合，包括可视角和影响权重
         # obs_ 存储每个个体观察区的个体位置(pos,vel)，
         obs_ = [[] for _ in range(self.n)]
         # logging.info("zzzz")
@@ -325,7 +328,13 @@ class Couzin():
             dv = agent.vel
 
             # 更新各个个体的可视角
-            agent.field_of_view = actions[i]
+            # 先判断是否是领导者，是领导者的话静态可视角，动态影响权重
+            # 非领导者的话，无影响权重动态可视角
+            if i in self.leader_list:
+                agent.field_of_view = 2 * math.pi
+                agent.w_p = actions[i]
+            else:
+                agent.field_of_view = actions[i]
 
             if agent.is_leader:
                 agent.g = np.array([self.target_x, self.target_y]) - agent.pos
@@ -392,6 +401,7 @@ class Couzin():
                 elif norm(da) != 0:
                     # 吸引区域
                     if agent.is_leader:
+                        # 
                         d_new = (da + dv) / norm(da + dv)
                         d = (d_new + agent.w_p * agent.g) / norm(d_new + agent.w_p * agent.g)
                     else:
@@ -425,10 +435,12 @@ class Couzin():
 
             # 将邻居信息更新在obs_single中
             # 将单个个体的观察空间长度固定
-            obs_single = [[] for _ in range(self.n - 1)]
+            # 修改的地方在于加上本智能体的信息，在考虑与周边个体的关系时，同时需要本个体的位置和速度信息
+            obs_single = [[] for _ in range(self.n)]
             # logging.info(
             #     "attract:{}".format(agent.neibour_set_attract))
-            p = 0
+            obs_single[0] = [agent.pos[0], agent.pos[1], agent.vel[0], agent.vel[1]]          
+            p = 1
             for item in agent.neibour_set_attract:
                 # logging.info("p:{},{},{},{},{}".format(agent.id, p, len(obs_single), len(agent.neibour_set_attract), item.id))
 
@@ -440,6 +452,7 @@ class Couzin():
                     obs_single[m] = [0, 0, 0, 0]
 
             obs_[i]  = obs_single
+            logging.info("obs_[i]:{}".format(len(obs_[i])))
         # 更新各个点的坐标位置
         [agent.update_position(self.dt) for agent in self.swarm]
         # 输出各个智能体的编号，坐标，速度方向,是否是领导者
@@ -576,8 +589,10 @@ class Couzin():
             done = [True] * self.n
 
         obs_ = convert_list2(obs_)
+        print("obs:{}".format(len(obs_)))
         # state = convert_list1(obs_)
         # logging.info("obs:{}".format(obs_))
+        logging.info("obs_item:{}".format(len(obs_[0])))
 
         resward = [self.reward] * len(self.swarm)
 

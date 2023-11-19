@@ -4,6 +4,8 @@ from agent import Agent
 import logging
 import torch
 from networks import ActorNetwork
+from networks import ActorNetwork_w
+# from main import env_
 
 torch.autograd.set_detect_anomaly(True)
 # logging.basicConfig(
@@ -17,7 +19,7 @@ torch.autograd.set_detect_anomaly(True)
 
 
 class MADDPG:
-    def __init__(self, actor_dims, critic_dims, n_agents, n_actions,
+    def __init__(self, leader_list ,actor_dims, critic_dims, n_agents, n_actions,
                  scenario='simple', alpha=0.01, beta=0.01, fc1=66,
                  fc2=67, gamma=0.99, tau=0.01, chkpt_dir='tmp/maddpg/'):
         self.agents = []
@@ -38,24 +40,39 @@ class MADDPG:
         ####################################################################  
         # 网络创建
         # 直接输入actor维数
-        actor_dims = (n_agents - 1) * 4
+        actor_dims = n_agents  * 4
         fc1 = 64
         fc2 = 64
         n_actions = 1
         alpha=0.01
+        # general_actor_name,general_actor_name 创建时候传入名字
         general_actor_name = "general_actor"
         general_target_actor_name = "general_actor_name"
         general_actor = ActorNetwork(alpha, actor_dims, fc1, fc2, n_actions, 
                                   chkpt_dir=chkpt_dir,  name=general_actor_name) 
         general_target_actor = ActorNetwork(alpha, actor_dims, fc1, fc2, n_actions, 
                                   chkpt_dir=chkpt_dir,  name=general_target_actor_name) 
+        
+        general_actor_name_leader = "general_actor_leader"
+        general_target_actor_name_leader = "general_actor_name_leader"
+        general_actor_leader = ActorNetwork_w(alpha, actor_dims, fc1, fc2, n_actions, 
+                                  chkpt_dir=chkpt_dir,  name=general_actor_name_leader) 
+        general_target_actor_leader = ActorNetwork_w(alpha, actor_dims, fc1, fc2, n_actions, 
+                                  chkpt_dir=chkpt_dir,  name=general_target_actor_name_leader) 
+
         # 传入每个agent里面
         logging.info("chkpt_dir:{}".format(chkpt_dir))
         for agent_idx in range(self.n_agents):
-            self.agents.append(Agent(general_actor, general_target_actor, critic_dims,
-                                        n_actions, n_agents, agent_idx, alpha=alpha, beta=beta,
-                                        chkpt_dir=chkpt_dir))
-
+            # 加一个判断, 判断该个体是否为领导者,领导者要传入目标
+            if agent_idx in leader_list:
+                self.agents.append(Agent(general_actor_leader,  general_target_actor_leader, critic_dims,
+                                            n_actions, n_agents, agent_idx, alpha=alpha, beta=beta,
+                                            chkpt_dir=chkpt_dir))
+            # 增加
+            else:
+                   self.agents.append(Agent(general_actor, general_target_actor, critic_dims,
+                                            n_actions, n_agents, agent_idx, alpha=alpha, beta=beta,
+                                            chkpt_dir=chkpt_dir))
 
     def save_checkpoint(self):
         print('... saving checkpoint ...')

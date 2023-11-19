@@ -77,7 +77,8 @@ class MultiAgentReplayBuffer:
         #  3 1024 * 8  1024 * 10  1024 * 10   self.actor_state_memory = []
         #  3 1024 * 5  1024 * 5   1024 * 5   self.actor_state_memory = []
         for agent_idx in range(self.n_agents):
-            # 横坐标是agent编号,然后里面有个memory长度的数组，存储在各个位置的观察   
+            # 横坐标是agent编号,然后里面有个memory长度的数组，存储在各个位置的观察  
+            logging.info("raw_obs[agent_idx]:{}".format(len(raw_obs[agent_idx]))) 
             self.actor_state_memory[agent_idx][index] = raw_obs[agent_idx]
             self.actor_new_state_memory[agent_idx][index] = raw_obs_[agent_idx]
             self.actor_action_memory[agent_idx][index] = action[agent_idx]
